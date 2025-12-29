@@ -55,10 +55,12 @@ def scorelib_search(request):
     return JsonResponse({'results': results})
 	
 @login_required
-def next_concert_view(request):
-    # 1. Das naechste Konzert finden (Datum >= heute)
-    #next_concert = Concert.objects.filter(date__gte=timezone.now()).order_by('date').first()
-    next_concert = Concert.objects.filter(date__gte=timezone.now()).order_by('date').prefetch_related(
+def concert_detail_view(request, concert_id=None):
+    if concert_id:
+        # Ein ganz bestimmtes Konzert laden
+        next_concert = get_object_or_404(Concert, pk=concert_id)
+    else:
+        next_concert = Concert.objects.filter(date__gte=timezone.now()).order_by('date').prefetch_related(
         'programitem_set__piece__audiorecording_set').first()
     
     context = {'concert': next_concert}
@@ -88,7 +90,11 @@ def next_concert_view(request):
         context['program_data'] = program_data
 
     return render(request, 'scorelib/next_concert.html', context)
-	
+
+def concert_list_view(request):
+    # Alle Konzerte nach Datum sortiert (neueste oben)
+    concerts = Concert.objects.all().order_by('-date')
+    return render(request, 'scorelib/concert_list.html', {'concerts': concerts})
 
 @login_required
 def protected_part_download(request, part_id):

@@ -96,12 +96,20 @@ class Part(models.Model):
 
 class Concert(models.Model):
     title = models.CharField(max_length=200)
+    subtitle = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        verbose_name="Untertitel"
+    )
     date = models.DateTimeField()
     venue = models.ForeignKey(Venue, on_delete=models.SET_NULL, null=True)
     poster = models.ImageField(upload_to='concerts/posters/', blank=True, null=True)
     program = models.ManyToManyField(Piece, through='ProgramItem', related_name='concerts')
 
     def __str__(self):
+        if self.subtitle:
+            return f"{self.title} – {self.subtitle} ({self.date.date()})"
         return f"{self.title} ({self.date.date()})"
 
 class ProgramItem(models.Model):
