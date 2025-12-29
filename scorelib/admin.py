@@ -63,7 +63,7 @@ class PieceAdmin(admin.ModelAdmin):
         urls = super().get_urls()
         custom_urls = [
             path(
-                '<int:piece_id>/split/',
+                '<int:piece_id>/change/split/',
                 self.admin_site.admin_view(self.split_view),
                 name='piece-split',
             ),
