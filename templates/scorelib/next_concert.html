@@ -1,0 +1,74 @@
+{% extends "scorelib/base.html" %} {% block content %}
+<div class="container mt-4">
+    {% if concert %}
+        <div class="row">
+            <div class="col-md-8">
+                <h1 class="display-4">{{ concert.title }}</h1>
+                <p class="lead">
+                    <i class="bi bi-calendar-event"></i> {{ concert.date|date:"d. F Y, H:i" }} Uhr<br>
+                    <i class="bi bi-geo-alt"></i> {{ concert.venue.name }}
+                </p>
+                
+                <h3 class="mt-5 mb-3">Konzertprogramm</h3>
+                <div class="list-group shadow-sm">
+                    {% for item in program_data %}
+                        <div class="list-group-item list-group-item-action p-3">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ forloop.counter }}. {{ item.piece.title }}</h5>
+                                <small class="text-muted">{{ item.piece.archive_label }}</small>
+                            </div>
+                            <p class="mb-2 text-secondary">{{ item.piece.composer.name }}</p>
+
+                            <div class="mt-2">
+                                {% if item.user_parts %}
+                                    <span class="text-success small d-block mb-1">Deine Noten:</span>
+                                    {% for part in item.user_parts %}
+                                        <a href="{% url 'protected_part_download' part.id %}" class="btn btn-primary btn-sm me-2" target="_blank">
+                                            📥 {{ part.part_name }}
+                                        </a>
+                                    {% endfor %}
+                                {% else %}
+                                    <small class="text-muted">Keine passenden Noten für dein Instrument gefunden.</small>
+                                {% endif %}
+                            </div>
+
+                            {% if item.recordings %}
+                                <div class="mt-3">
+                                    <small class="text-muted">Audio-Referenz:</small>
+                                    {% for rec in item.piece.audiorecording_set.all %}
+										{% if rec.id %}  
+											<div class="mb-2">
+												<span class="small">{{ rec.description }}</span>
+												<audio controls class="audio-player">
+													<source src="{% url 'protected_audio_download' rec.id %}" type="audio/mpeg">
+													Ihr Browser unterst&uuml;tzt keine Audio-Elemente.
+												</audio>
+												<a href="{% url 'protected_audio_download' rec.id %}" download class="btn btn-link btn-sm p-0">
+													Datei herunterladen
+												</a>
+											</div>
+										{% endif %}
+									{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                {% if concert.poster %}
+                    <div class="card shadow-sm">
+                        <img src="{{ concert.poster.url }}" class="card-img-top" alt="Konzertplakat">
+                        <div class="card-body">
+                            <p class="card-text text-center small">Konzertplakat</p>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info">Momentan sind keine zukünftigen Konzerte geplant.</div>
+    {% endif %}
+</div>
+{% endblock %}

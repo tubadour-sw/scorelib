@@ -1,0 +1,88 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+
+<datalist id="part-names-list">
+    {% for name in existing_part_names %}
+        <option value="{{ name }}">
+    {% endfor %}
+</datalist>
+
+<div class="actions" style="margin-bottom: 20px;">
+    <button type="button" onclick="loadPreset('symphonic')" class="button">Load Symphonic Orchestra</button>
+    <button type="button" onclick="loadPreset('bigband')" class="button">Load Big Band</button>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div style="background: #f8f8f8; padding: 20px; border: 1px solid #ccc; margin-bottom: 20px;">
+        <h3>1. Upload Master PDF</h3>
+        <input type="file" name="master_pdf" accept="application/pdf" required>
+    </div>
+
+    <h3>2. Define Parts</h3>
+    {{ formset.management_form }}
+    <table id="parts-table" style="width: 100%;">
+        <thead>
+            <tr>
+                <th>Part Name (with Autocomplete)</th>
+                <th>Pages (e.g. 1, 3-5)</th>
+            </tr>
+        </thead>
+        <tbody id="form-body">
+            {% for form in formset %}
+            <tr class="form-row">
+                <td>
+                    <input type="text" name="{{ form.part_name.html_name }}" 
+                           list="part-names-list" class="vTextField" 
+                           placeholder="e.g. Trumpet 1 in Bb">
+                </td>
+                <td>{{ form.pages }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <br>
+    <button type="button" id="add-row" class="button">Add extra row</button>
+    <hr>
+    <input type="submit" value="Start Splitting and Save" class="default" style="background: #417690; color: white;">
+</form>
+
+<script>
+    const PRESETS = {
+        'symphonic': ['Flute 1', 'Flute 2', 'Oboe 1', 'Oboe 2', 'Clarinet 1 in Bb', 'Clarinet 2 in Bb', 'Bassoon 1', 'Horn 1 in F', 'Horn 2 in F', 'Trumpet 1 in Bb', 'Trumpet 2 in Bb', 'Trombone 1', 'Trombone 2', 'Tuba', 'Timpani', 'Violin 1', 'Violin 2', 'Viola', 'Cello', 'Contrabass'],
+        'bigband': ['Alto Sax 1', 'Alto Sax 2', 'Tenor Sax 1', 'Tenor Sax 2', 'Baritone Sax', 'Trumpet 1', 'Trumpet 2', 'Trumpet 3', 'Trumpet 4', 'Trombone 1', 'Trombone 2', 'Trombone 3', 'Trombone 4', 'Piano', 'Guitar', 'Bass', 'Drums']
+    };
+
+    function loadPreset(key) {
+        const instruments = PRESETS[key];
+        const tableBody = document.getElementById('form-body');
+        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        
+        // Erstmal Tabelle leeren (außer die erste Zeile als Vorlage)
+        const rows = tableBody.querySelectorAll('.form-row');
+        const templateRow = rows[0].cloneNode(true);
+        tableBody.innerHTML = '';
+        
+        instruments.forEach((inst, index) => {
+            let newRow = templateRow.cloneNode(true);
+            newRow.innerHTML = newRow.innerHTML.replace(/-0-/g, '-' + index + '-');
+            let input = newRow.querySelector('input[type="text"]');
+            input.value = inst;
+            tableBody.appendChild(newRow);
+        });
+        
+        totalForms.value = instruments.length;
+    }
+
+    // Add Row Script (wie zuvor)
+    document.getElementById('add-row').addEventListener('click', function() {
+        let totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        let currentCount = parseInt(totalForms.value);
+        let newRow = document.querySelector('.form-row').cloneNode(true);
+        newRow.innerHTML = newRow.innerHTML.replace(/-0-/g, '-' + currentCount + '-');
+        newRow.querySelectorAll('input').forEach(i => i.value = '');
+        document.getElementById('form-body').appendChild(newRow);
+        totalForms.value = currentCount + 1;
+    });
+</script>
+{% endblock %}

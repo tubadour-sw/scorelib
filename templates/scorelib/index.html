@@ -1,0 +1,77 @@
+{% extends "scorelib/base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="display-6">Musikarchiv</h2>
+        <p class="text-muted">Durchstöbere die gesamte Bibliothek des Orchesters.</p>
+    </div>
+    <div class="col-md-4">
+        <input type="text" id="searchInput" class="form-control form-control-lg border-primary" placeholder="Titel oder Komponist suchen...">
+    </div>
+</div>
+
+<div class="bg-white shadow-sm rounded">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Titel</th>
+                <th>Komponist/Arr.</th>
+                <th>Stimmen</th>
+                <th>Audio</th> </tr>
+        </thead>
+        <tbody id="pieceTable">
+            {% for piece in pieces %}
+            <tr class="piece-row">
+                <td><strong>{{ piece.title }}</strong></td>
+                <td>
+                    {{ piece.composer.name }}
+                    {% if piece.arranger %}<br><small class="text-muted">Arr: {{ piece.arranger.name }}</small>{% endif %}
+                </td>
+                <td>
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for part in piece.parts.all %}
+                            {% if user.profile.can_view_part or user.is_staff %}
+                                <a href="{% url 'protected_part_download' part.id %}" class="btn btn-sm btn-outline-dark">
+                                    {{ part.part_name }}
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </td>
+                <td>
+                    {% for rec in piece.audiorecording_set.all %}
+                        <div class="d-flex align-items-center mb-1">
+                            <a href="{% url 'protected_audio_download' rec.id %}" 
+                               class="btn btn-sm btn-outline-success me-2" 
+                               title="{{ rec.description|default:'Abspielen' }}"
+                               target="_blank">
+                                ▶️ Hören
+                            </a>
+                            {% if rec.description %}
+                                <small class="text-muted d-none d-md-inline">{{ rec.description }}</small>
+                            {% endif %}
+                        </div>
+                    {% empty %}
+                        <small class="text-muted">-</small>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // Echtzeit-Suche für die Tabelle
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+        let filter = this.value.toLowerCase();
+        let rows = document.querySelectorAll('.piece-row');
+        
+        rows.forEach(row => {
+            let text = row.innerText.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,6 @@
+Django>=4.2
+pypdf
+Pillow
+psycopg2-binary  # Für die PostgreSQL-Datenbank auf dem Server
+gunicorn         # Der Application-Server für das Deployment
+django-crispy-forms  # Falls wir Crispy-Forms für schönere Formulare nutzen

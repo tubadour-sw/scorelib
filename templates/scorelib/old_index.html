@@ -1,0 +1,59 @@
+{% extends "scorelib/base.html" %}
+
+{% block content %}
+{% if concert %}
+<div class="row align-items-center mb-5 p-4 bg-white rounded shadow-sm">
+    <div class="col-md-4 text-center">
+        {% if concert.poster %}
+            <img src="{{ concert.poster.url }}" class="img-fluid rounded" style="max-height: 300px;">
+        {% else %}
+            <div class="bg-light p-5 rounded">🖼️ Kein Plakat</div>
+        {% endif %}
+    </div>
+    <div class="col-md-8">
+        <span class="badge bg-danger mb-2">Nächstes Event</span>
+        <h1 class="display-5 fw-bold">{{ concert.title }}</h1>
+        <p class="lead">{{ concert.date|date:"d. F Y, H:i" }} Uhr<br>📍 {{ concert.venue.name }}</p>
+    </div>
+</div>
+
+<h3>Konzertprogramm</h3>
+<div class="list-group mb-5">
+    {% for item in concert.programitem_set.all %}
+    <div class="list-group-item list-group-item-action flex-column align-items-start p-3">
+        <div class="d-flex w-100 justify-content-between">
+            <h5 class="mb-1">{{ item.piece.title }}</h5>
+            <small class="text-muted">Nr. {{ item.order }}</small>
+        </div>
+        <p class="mb-2 text-muted">{{ item.piece.composer.name }}</p>
+        
+        <div class="mb-3">
+            {% for part in item.piece.parts.all %}
+                <a href="{{ part.pdf_file.url }}" class="btn btn-sm btn-primary me-2 mb-1">⬇️ {{ part.part_name }}</a>
+            {% endfor %}
+        </div>
+
+        {% with recordings=item.piece.recordings.all %}
+        {% if recordings %}
+            <div class="bg-light p-2 rounded">
+                <small class="fw-bold d-block mb-1">Hörprobe / Aufnahme:</small>
+                {% for rec in recordings %}
+                    <div class="mb-2">
+                        <span class="small">{{ rec.description }}</span>
+                        <audio controls class="audio-player">
+                            <source src="{{ rec.audio_file.url }}" type="audio/mpeg">
+                            Ihr Browser unterstützt keine Audio-Elemente.
+                        </audio>
+                        <a href="{% url 'protected_audio_download' rec.id %}" download class="btn btn-link btn-sm p-0">Datei herunterladen</a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+    <div class="alert alert-info">Momentan ist kein zukünftiges Konzert geplant.</div>
+{% endif %}
+{% endblock %}
