@@ -11,9 +11,8 @@ from django.http import HttpResponse, Http404
 from django.http import FileResponse
 
 # Importiere deine Modelle
-from .models import Piece, Part, Concert, Arranger, Composer, Genre, MusicianProfile, AudioRecording
+from .models import Piece, Part, Concert, Arranger, Composer, Publisher, Genre, MusicianProfile, AudioRecording
 from .forms import CSVPiecesImportForm
-
 
 @login_required
 def scorelib_index(request):
@@ -24,7 +23,46 @@ def scorelib_index(request):
         'parts', 
         'audiorecording_set' # Falls du keinen related_name='recordings' hast
     )
-    return render(request, 'scorelib/index.html', {'pieces': pieces})
+    
+    # Filterwerte aus der URL (GET) holen
+    f_search = request.GET.get('search')
+    f_genre = request.GET.get('genre')
+    f_diff = request.GET.get('difficulty')
+    f_comp = request.GET.get('composer')
+    f_arr = request.GET.get('arranger')
+    f_pub = request.GET.get('publisher')
+    f_con = request.GET.get('concert')
+
+    # Filter anwenden
+    if f_search:
+        pieces = pieces.filter(Q(title__icontains=f_search) | Q(archive_label__icontains=f_search))
+    if f_genre:
+        pieces = pieces.filter(genres__id=f_genre)
+    if f_diff:
+        pieces = pieces.filter(difficulty=f_diff)
+    if f_comp:
+        pieces = pieces.filter(composer__id=f_comp)
+    if f_arr:
+        pieces = pieces.filter(arranger__id=f_arr)
+    if f_pub:
+        pieces = pieces.filter(publisher__id=f_pub)
+    if f_con:
+        # Hier filtern wir über die Setliste (ProgramItems) des gewählten Konzerts
+        pieces = pieces.filter(programitem__concert_id=f_con)
+
+    # Dubletten verhindern (wegen ManyToMany Genres)
+    pieces = pieces.distinct()
+    
+    context = {
+        'pieces': pieces,
+        'genres': Genre.objects.all().order_by('name'),
+        'composers': Composer.objects.all().order_by('name'),
+        'arrangers': Arranger.objects.all().order_by('name'),
+        'publishers': Publisher.objects.all().order_by('name'),
+        'concerts': Concert.objects.all().order_by('-date'),
+        'active_filters': request.GET
+    }
+    return render(request, 'scorelib/index.html', context)
 
 def scorelib_search(request):
     """Gibt Suchergebnisse als JSON zurueck."""
@@ -265,4 +303,50 @@ def piece_csv_import(request):
         form = CSVPiecesImportForm()
     
     return render(request, 'admin/csv_pieces_import.html', {'form': form})
-    
+   
+
+def index(request):
+    # Basis-Queryset
+    pieces = Piece.objects.all().select_related('composer', 'arranger', 'publisher').order_by('title')
+
+    # Filterwerte aus der URL (GET) holen
+    f_search = request.GET.get('search')
+    f_genre = request.GET.get('genre')
+    f_diff = request.GET.get('difficulty')
+    f_comp = request.GET.get('composer')
+    f_arr = request.GET.get('arranger')
+    f_pub = request.GET.get('publisher')
+    f_con = request.GET.get('concert')
+
+    # Filter anwenden
+    if f_search:
+        pieces = pieces.filter(Q(title__icontains=f_search) | Q(archive_label__icontains=f_search))
+    if f_genre:
+        pieces = pieces.filter(genres__id=f_genre)
+    if f_diff:
+        pieces = pieces.filter(difficulty=f_diff)
+    if f_comp:
+        pieces = pieces.filter(composer__id=f_comp)
+    if f_arr:
+        pieces = pieces.filter(arranger__id=f_arr)
+    if f_pub:
+        pieces = pieces.filter(publisher__id=f_pub)
+    if f_con:
+        # Hier filtern wir über die Setliste (ProgramItems) des gewählten Konzerts
+        pieces = pieces.filter(programitem__concert_id=f_con)
+
+    # Dubletten verhindern (wegen ManyToMany Genres)
+    pieces = pieces.distinct()
+
+    # Daten für die Dropdowns im Template
+    context = {
+        'pieces': pieces,
+        'genres': Genre.objects.all().order_by('name'),
+        'composers': Composer.objects.all().order_by('name'),
+        'arrangers': Arranger.objects.all().order_by('name'),
+        'publishers': Publisher.objects.all().order_by('name'),
+        'concerts': Concert.objects.all().order_by('-date'),
+        # Aktive Filter zurückgeben, um "selected" im Template zu setzen
+        'active_filters': request.GET
+    }
+    return render(request, 'scorelib/index.html', context)

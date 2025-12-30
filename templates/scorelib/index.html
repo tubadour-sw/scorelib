@@ -11,6 +11,74 @@
     </div>
 </div>
 
+<div class="card mb-4 border-0 shadow-sm bg-light">
+    <div class="card-body">
+        <form method="GET" action="{% url 'scorelib_index' %}" class="row g-2">
+            <div class="col-md-4">
+                <label class="small fw-bold">Suche</label>
+                <input type="text" name="search" class="form-control" placeholder="Titel / Archiv-Nr..." value="{{ active_filters.search }}">
+            </div>
+            <div class="col-md-3">
+                <label class="small fw-bold">Genre</label>
+                <select name="genre" class="form-select">
+                    <option value="">Alle Genres</option>
+                    {% for g in genres %}
+                        <option value="{{ g.id }}" {% if active_filters.genre == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="small fw-bold">Stufe</label>
+                <select name="difficulty" class="form-select">
+                    <option value="">Alle</option>
+                    {% for i in "123456" %}<option value="{{ i }}" {% if active_filters.difficulty == i %}selected{% endif %}>{{ i }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="small fw-bold">Konzert / Projekt</label>
+                <select name="concert" class="form-select">
+                    <option value="">Alle Konzerte</option>
+                    {% for c in concerts %}
+                        <option value="{{ c.id }}" {% if active_filters.concert == c.id|stringformat:"s" %}selected{% endif %}>{{ c.title }} ({{ c.date|date:"Y" }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="small fw-bold">Komponist</label>
+                <select name="composer" class="form-select">
+                    <option value="">Alle</option>
+                    {% for c in composers %}
+                        <option value="{{ c.id }}" {% if active_filters.composer == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="small fw-bold">Arrangeur</label>
+                <select name="arranger" class="form-select">
+                    <option value="">Alle</option>
+                    {% for a in arrangers %}
+                        <option value="{{ a.id }}" {% if active_filters.arranger == a.id|stringformat:"s" %}selected{% endif %}>{{ a.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="small fw-bold">Verlag</label>
+                <select name="publisher" class="form-select">
+                    <option value="">Alle</option>
+                    {% for p in publishers %}
+                        <option value="{{ p.id }}" {% if active_filters.publisher == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1">Filtern</button>
+                <a href="{% url 'scorelib_index' %}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="bg-white shadow-sm rounded">
     <table class="table table-hover align-middle">
         <thead class="table-light">
