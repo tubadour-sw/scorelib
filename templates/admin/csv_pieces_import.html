@@ -1,0 +1,12 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>Stücke via CSV importieren</h2>
+<p>Die CSV-Datei muss folgende Spalten haben (Semicolon-getrennt): <br>
+<code>Titel;Composer;Arranger;Label;Genres</code></p>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Import starten</button>
+</form>
+{% endblock %}

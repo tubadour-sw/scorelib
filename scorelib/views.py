@@ -1,16 +1,19 @@
 import os
-from django.shortcuts import render, get_object_or_404
+import csv, io
+from datetime import timedelta
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import HttpResponse, Http404
 from django.http import FileResponse
-from .models import AudioRecording
-from .models import Part
 
 # Importiere deine Modelle
-from .models import Piece, Part, Concert, MusicianProfile
+from .models import Piece, Part, Concert, Arranger, Composer, Genre, MusicianProfile, AudioRecording
+from .forms import CSVPiecesImportForm
+
 
 @login_required
 def scorelib_index(request):
@@ -53,17 +56,44 @@ def scorelib_search(request):
         })
     
     return JsonResponse({'results': results})
-	
+    
 @login_required
 def concert_detail_view(request, concert_id=None):
     if concert_id:
         # Ein ganz bestimmtes Konzert laden
         next_concert = get_object_or_404(Concert, pk=concert_id)
     else:
-        next_concert = Concert.objects.filter(date__gte=timezone.now()).order_by('date').prefetch_related(
+        next_concert = Concert.objects.filter(date__isnull=False, date__gte=timezone.now()).order_by('date').prefetch_related(
         'programitem_set__piece__audiorecording_set').first()
-    
+        
     context = {'concert': next_concert}
+    
+    # Die Summe aller 'duration'-Felder der Stücke im Programm berechnen
+    # Wir greifen über das ProgramItem auf das Piece zu
+    total_duration = next_concert.programitem_set.aggregate(
+        total=Sum('piece__duration')
+    )['total']
+
+    # Falls das Programm leer ist, setzen wir die Dauer auf 0
+    if not total_duration:
+        from datetime import timedelta
+        total_duration = timedelta(0)
+        
+    context['total_duration'] = total_duration
+    
+    # In der views.py innerhalb von concert_detail_view
+    total_seconds = int(total_duration.total_seconds())
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+
+    if minutes > 60:
+        hours = minutes // 60
+        remaining_minutes = minutes % 60
+        formatted_duration = f"{hours} Std. {remaining_minutes} Min."
+    else:
+        formatted_duration = f"{minutes}:{seconds:02d} Min."
+
+    context['formatted_duration'] = formatted_duration
 
     if next_concert:
         # 2. Das Profil des eingeloggten Nutzers holen
@@ -115,7 +145,7 @@ def protected_part_download(request, part_id):
             response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
             return response
     raise Http404
-	
+    
 @login_required
 def protected_audio_download(request, audio_id):
     recording = get_object_or_404(AudioRecording, pk=audio_id)
@@ -130,3 +160,109 @@ def protected_audio_download(request, audio_id):
     response = FileResponse(open(file_path, 'rb'), content_type="audio/mpeg")
     response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
     return response
+
+
+def piece_csv_import(request):
+    if request.method == "POST":
+        form = CSVPiecesImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            csv_file = request.FILES['csv_file']
+            
+            try:
+                # utf-8-sig hilft gegen Excel-BOM Probleme
+                data_set = csv_file.read().decode('utf-8-sig')
+                io_string = io.StringIO(data_set)
+                
+                # Wir lesen die erste Zeile separat für den Check
+                reader = csv.DictReader(io_string, delimiter=';')
+                
+                # Konsistenz-Check: Sind die Pflichtspalten vorhanden?
+                # reader.fieldnames enthält die Namen der Kopfzeile
+                required_columns = ['Title', 'Composer', 'Arranger']
+                missing_columns = [col for col in required_columns if col not in reader.fieldnames]
+                
+                if missing_columns:
+                    messages.error(
+                        request, 
+                        f"Import abgebrochen: Die CSV-Datei hat ein falsches Format. "
+                        f"Es fehlen folgende Spalten: {', '.join(missing_columns)}. "
+                        f"Bitte prüfen Sie die Groß-/Kleinschreibung."
+                    )
+                    return redirect(request.path)
+                
+                created_count = 0
+                updated_count = 0
+                for row in reader:
+                    if not row.get("Title"):
+                        continue
+                    
+                    # 1. Komponist holen oder neu anlegen
+                    if row.get('Composer'):
+                        composer, _ = Composer.objects.get_or_create(name=row['Composer'].strip())
+                    
+                    # 2. Arrangeur optional holen oder neu anlegen
+                    arranger = None
+                    if row.get('Arranger'):
+                        arranger, _ = Arranger.objects.get_or_create(name=row['Arranger'].strip())
+                    
+                    # Schwierigkeitsgrad 
+                    diff_raw = row.get('Difficulty', '').strip()
+                    difficulty = int(diff_raw) if diff_raw.isdigit() else None
+                    
+                    # Dauer-Logik für DurationField
+                    duration_raw = row.get('Duration', '').strip() # Angenommen die Spalte heißt jetzt so
+                    duration_delta = None
+                    
+                    if duration_raw and ':' in duration_raw:
+                        try:
+                            parts = duration_raw.split(':')
+                            if len(parts) == 2: # mm:ss
+                                minutes, seconds = map(int, parts)
+                                duration_delta = timedelta(minutes=minutes, seconds=seconds)
+                            elif len(parts) == 3: # hh:mm:ss
+                                hours, minutes, seconds = map(int, parts)
+                                duration_delta = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+                        except ValueError:
+                            pass # Falls Text in der Zeitspalte steht, ignorieren wir es
+                            
+                    # 3. Stück anlegen (nur wenn Titel + Komponist Kombi noch nicht existiert)
+                    piece, created = Piece.objects.update_or_create(
+                        title=row['Title'].strip(),
+                        composer=composer,
+                        defaults={
+                            'arranger': arranger,
+                            'archive_label': row.get('Label', '').strip(),
+                            'duration': duration_delta,
+                            'difficulty': difficulty,
+                        }
+                    )
+                    
+                    # 4. Genres verknüpfen (Mehrfachnennung mit Komma möglich)
+                    if row.get('Genres'):
+                        genre_names = [g.strip() for g in row['Genres'].split(',')]
+                        for g_name in genre_names:
+                            genre, _ = Genre.objects.get_or_create(name=g_name)
+                            piece.genres.add(genre)
+                    
+                    if row.get('Concerts'):
+                        concert_names = [g.strip() for g in row['Concerts'].split(',')]
+                        for c_name in concert_names:
+                            concert, _ = Concert.objects.get_or_create(title=c_name)
+                            piece.concerts.add(concert)
+                    
+                    if created:
+                        created_count += 1
+                    else:
+                        update_or_create += 1
+                
+                messages.success(request, f"Import abgeschlossen: {created_count} Stücke neu angelegt, {updated_count} Stücke aktualisiert.")
+                return redirect('admin:scorelib_piece_changelist')
+            except UnicodeDecodeError:
+                messages.error(request, "Fehler: Die Datei konnte nicht gelesen werden. Bitte stellen Sie sicher, dass sie als CSV (UTF-8) gespeichert wurde.")
+            except Exception as e:
+                messages.error(request, f"Ein unerwarteter Fehler ist aufgetreten: {e}")
+    else:
+        form = CSVPiecesImportForm()
+    
+    return render(request, 'admin/csv_pieces_import.html', {'form': form})
+    

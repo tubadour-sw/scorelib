@@ -76,10 +76,20 @@ class Piece(models.Model):
         max_length=50, 
         blank=True, 
         null=True, 
-        verbose_name="Archiv-Nummer/Label"
+        verbose_name="Archiv-Label"
     )
     is_medley = models.BooleanField(default=False)
     genres = models.ManyToManyField(Genre, blank=True)
+    duration = models.DurationField(
+        blank=True, 
+        null=True, 
+        verbose_name="Dauer"
+    )
+    difficulty = models.IntegerField(
+        blank=True, 
+        null=True, 
+        verbose_name="Schwierigkeit"
+    )
 
     def __str__(self):
         return f"{self.title} ({self.composer.name})"
@@ -102,15 +112,16 @@ class Concert(models.Model):
         null=True, 
         verbose_name="Untertitel"
     )
-    date = models.DateTimeField()
+    date = models.DateTimeField(blank=True, null=True)
     venue = models.ForeignKey(Venue, on_delete=models.SET_NULL, null=True)
     poster = models.ImageField(upload_to='concerts/posters/', blank=True, null=True)
     program = models.ManyToManyField(Piece, through='ProgramItem', related_name='concerts')
 
     def __str__(self):
+        date_txt = f"({self.date.date()})" if self.date else ""
         if self.subtitle:
-            return f"{self.title} – {self.subtitle} ({self.date.date()})"
-        return f"{self.title} ({self.date.date()})"
+            return f"{self.title} – {self.subtitle} {date_txt}"
+        return f"{self.title} {date_txt}"
 
 class ProgramItem(models.Model):
     concert = models.ForeignKey(Concert, on_delete=models.CASCADE)

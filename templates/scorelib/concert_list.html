@@ -6,7 +6,7 @@
     <a href="{% url 'concert_detail' c.id %}" class="list-group-item list-group-item-action">
         <div class="d-flex w-100 justify-content-between">
             <h5 class="mb-1">{{ c.title }}</h5>
-            <small>{{ c.date|date:"d.m.Y" }}</small>
+            {% if c.date %}<small>{{ c.date|date:"d.m.Y" }}</small>{% endif %}
         </div>
         {% if c.subtitle %}<p class="mb-1 text-muted">{{ c.subtitle }}</p>{% endif %}
     </a>

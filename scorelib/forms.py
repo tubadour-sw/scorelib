@@ -12,3 +12,6 @@ class PartSplitEntryForm(forms.Form):
 
 # This allows us to have multiple rows in the admin view
 PartSplitFormSet = forms.formset_factory(PartSplitEntryForm, extra=1)
+
+class CSVPiecesImportForm(forms.Form):
+    csv_file = forms.FileField(label="CSV-Datei auswählen")

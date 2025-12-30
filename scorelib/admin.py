@@ -15,6 +15,7 @@ from .models import (
 )
 from .forms import PartSplitFormSet
 from .utils import process_pdf_split
+from .views import piece_csv_import
 
 
 # --- INLINES ---
@@ -46,8 +47,26 @@ class PublisherAdmin(admin.ModelAdmin):
 
 @admin.register(Piece)
 class PieceAdmin(admin.ModelAdmin):
+    #change_list_template = "admin/scorelib/piece/piece_changelist.html"
+
     # Wir definieren die Spalten
-    list_display = ('title', 'archive_label', 'composer', 'arranger', 'view_parts_link')
+    list_display = ('title', 'archive_label', 'composer', 'arranger', 'publisher', 'display_genres', 'difficulty', 'duration', 'view_parts_link')
+    
+    # Erlaube das Filtern nach Schwierigkeit direkt in der rechten Seitenleiste
+    list_filter = ('genres', 'composer', 'arranger', 'difficulty', 'publisher')
+    
+    def display_genres(self, obj):
+        # Holt alle Genres des Stücks und verbindet sie mit Komma
+        return ", ".join([genre.name for genre in obj.genres.all()])
+        
+    class Media:
+        # Hier definieren wir CSS, das nur für diesen Admin-Bereich geladen wird
+        css = {
+            'all': ('css/admin_custom.css',)
+        }
+    
+    # Überschrift für die Spalte im Admin
+    display_genres.short_description = 'Genres'
     
     # Wir legen fest, dass 'title' statt 'archive_label' der Link ist
     list_display_links = ('title',)
@@ -67,6 +86,7 @@ class PieceAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.split_view),
                 name='piece-split',
             ),
+            path('import-csv/', self.admin_site.admin_view(piece_csv_import), name='piece_csv_import'),
         ]
         return custom_urls + urls
 
@@ -140,8 +160,8 @@ class UserAdmin(BaseUserAdmin):
     
     # Optional: Spalten in der Benutzerübersicht erweitern
     list_display = ('username', 'email', 'first_name', 'last_name', 'get_instruments', 'is_staff')
-	
-	# Diese Methode sorgt dafür, dass Inlines beim ERSTELLEN 
+    
+    # Diese Methode sorgt dafür, dass Inlines beim ERSTELLEN 
     # (add_view) ignoriert werden, um den Signal-Konflikt zu vermeiden
     def get_inline_instances(self, request, obj=None):
         if not obj:
@@ -157,7 +177,7 @@ class PartAdmin(admin.ModelAdmin):
     list_display = ('part_name', 'piece', 'pdf_file')
     list_filter = ('piece',)
     search_fields = ('part_name', 'piece__title')
-	
+    
 # Standard User-Admin entfernen und mit unserer Erweiterung neu setzen
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)

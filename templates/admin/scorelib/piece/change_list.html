@@ -1,0 +1,28 @@
+{% extends "admin/change_list.html" %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <style>
+        /* Spalte für das Archiv-Label schmaler machen */
+        .column-archive_label, .field-archive_label {
+            width: 80px !important;
+            min-width: 80px !important;
+            max-width: 80px !important;
+            text-align: center;
+        }
+        
+        /* Verhindert, dass der Titel in der Zelle umbricht oder die Zelle aufbläht */
+        .field-archive_label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+{% endblock %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="import-csv/" class="addlink">CSV-Import</a>
+    </li>
+    {{ block.super }}
+{% endblock %}

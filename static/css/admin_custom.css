@@ -1,0 +1,14 @@
+/* Wir erzwingen die Breite mit !important */
+.column-archive_label {
+    width: 80px !important;
+    min-width: 80px !important;
+    max-width: 100px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Falls das Label in der Kopfzeile zu breit ist */
+th.column-archive_label .text a {
+    display: inline-block;
+    width: 80px;
+}
