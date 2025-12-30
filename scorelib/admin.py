@@ -193,22 +193,35 @@ class PieceAdmin(admin.ModelAdmin):
     # 5. Die View-Logik für das Splitting-Formular
     def split_view(self, request, piece_id):
         piece = get_object_or_404(Piece, pk=piece_id)
-        # Alle bisherigen Stimmbezeichnungen für das Autocomplete sammeln
         existing_part_names = Part.objects.order_by('part_name').values_list('part_name', flat=True).distinct()
         
         if request.method == 'POST':
-            formset = PartSplitFormSet(request.POST)
-            master_pdf = request.FILES.get('master_pdf')
+            formset = PartSplitFormSet(request.POST) #
+            master_pdf = request.FILES.get('master_pdf') #
             
-            if formset.is_valid() and master_pdf:
-                try:
-                    process_pdf_split(piece, master_pdf, formset)
-                    self.message_user(request, f"Erfolgreich: Stimmen für '{piece.title}' wurden erstellt.", messages.SUCCESS)
-                    return redirect('admin:scorelib_piece_change', piece.id)
-                except Exception as e:
-                    self.message_user(request, f"Fehler beim Splitten: {str(e)}", messages.ERROR)
+            if formset.is_valid() and master_pdf: #
+                # FEHLERBEHEBUNG: Wir holen die Daten aus dem validierten Formset
+                # und filtern nur die Zeilen heraus, die wirklich ausgefüllt sind.
+                valid_data_list = []
+                for form_data in formset.cleaned_data:
+                    # Wir prüfen, ob sowohl der Name als auch die Seiten ausgefüllt sind
+                    if form_data.get('part_name') and form_data.get('pages'):
+                        valid_data_list.append(form_data)
+                
+                if not valid_data_list:
+                    self.message_user(request, "Bitte geben Sie bei mindestens einer Stimme sowohl den Namen als auch die Seiten an.", messages.WARNING)
+                else:
+                    try:
+                        # WICHTIG: Übergib hier die gefilterte Liste 'valid_data_list'
+                        process_pdf_split(piece, master_pdf, valid_data_list) #
+                        self.message_user(request, f"Erfolgreich: Stimmen für '{piece.title}' wurden erstellt.", messages.SUCCESS) #
+                        return redirect('admin:scorelib_piece_change', piece.id) #
+                    except Exception as e:
+                        self.message_user(request, f"Fehler beim Splitten: {str(e)}", messages.ERROR) #
+            else:
+                self.message_user(request, "Das Formular ist ungültig. Bitte prüfen Sie Ihre Eingaben.", messages.ERROR)
         else:
-            formset = PartSplitFormSet()
+            formset = PartSplitFormSet() #
 
         context = {
             **self.admin_site.each_context(request),

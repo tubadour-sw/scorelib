@@ -7,82 +7,178 @@
     {% endfor %}
 </datalist>
 
-<div class="actions" style="margin-bottom: 20px;">
-    <button type="button" onclick="loadPreset('symphonic')" class="button">Load Symphonic Orchestra</button>
-    <button type="button" onclick="loadPreset('bigband')" class="button">Load Big Band</button>
-</div>
-
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    <div style="background: #f8f8f8; padding: 20px; border: 1px solid #ccc; margin-bottom: 20px;">
-        <h3>1. Upload Master PDF</h3>
-        <input type="file" name="master_pdf" accept="application/pdf" required>
+<div style="display: flex; gap: 20px; height: 85vh; align-items: stretch;">
+    
+    <div style="flex: 1.2; border: 1px solid #ccc; display: flex; flex-direction: column; background: #eee;">
+        <div style="padding: 10px; background: #417690; color: white; font-weight: bold;">
+            Master-PDF Vorschau
+        </div>
+        <div id="pdf-preview-container" style="flex-grow: 1; position: relative;">
+            <p id="no-pdf-msg" style="padding: 20px; text-align: center;">
+                Bitte wählen Sie rechts eine Datei aus, um die Vorschau zu laden.
+            </p>
+            <iframe id="pdf-iframe" src="" width="100%" height="100%" style="display: none; border: none;"></iframe>
+        </div>
     </div>
 
-    <h3>2. Define Parts</h3>
-    {{ formset.management_form }}
-    <table id="parts-table" style="width: 100%;">
-        <thead>
-            <tr>
-                <th>Part Name (with Autocomplete)</th>
-                <th>Pages (e.g. 1, 3-5)</th>
-            </tr>
-        </thead>
-        <tbody id="form-body">
-            {% for form in formset %}
-            <tr class="form-row">
-                <td>
-                    <input type="text" name="{{ form.part_name.html_name }}" 
-                           list="part-names-list" class="vTextField" 
-                           placeholder="e.g. Trumpet 1 in Bb">
-                </td>
-                <td>{{ form.pages }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <br>
-    <button type="button" id="add-row" class="button">Add extra row</button>
-    <hr>
-    <input type="submit" value="Start Splitting and Save" class="default" style="background: #417690; color: white;">
-</form>
+    <div style="flex: 1; overflow-y: auto; padding: 15px; background: #fdfdfd; border: 1px solid #ccc;">
+        <h2>{{ title }}</h2>
+        
+        <form method="post" enctype="multipart/form-data" id="split-form">
+            {% csrf_token %}
+            
+            <div style="background: #f0f0f0; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px; border-left: 5px solid #417690;">
+                <h3 style="margin-top: 0;">1. Master PDF hochladen</h3>
+                <input type="file" name="master_pdf" id="id_master_pdf" accept="application/pdf" required onchange="previewPDF(this)">
+            </div>
+
+            <div class="actions" style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <button type="button" onclick="loadPreset('symphonic')" class="button" style="flex: 1;">Orchester-Besetzung</button>
+                <button type="button" onclick="loadPreset('bigband')" class="button" style="flex: 1;">Big Band-Besetzung</button>
+            </div>
+
+            <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">2. Stimmen definieren</h3>
+            <p class="help" style="font-size: 0.8em; color: #666;">Zeilen ohne Seitenangabe werden beim Splitten ignoriert.</p>
+            
+            {{ formset.management_form }}
+            <table id="parts-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f4f4f4; text-align: left;">
+                        <th style="padding: 8px; border-bottom: 2px solid #ddd;">Name der Stimme</th>
+                        <th style="padding: 8px; border-bottom: 2px solid #ddd;">Seiten</th>
+                        <th style="padding: 8px; border-bottom: 2px solid #ddd;"></th>
+                    </tr>
+                </thead>
+                <tbody id="form-body">
+                    {% for form in formset %}
+                    <tr class="form-row">
+                        <td style="padding: 5px;">
+                            <input type="text" name="{{ form.part_name.html_name }}" 
+                                   list="part-names-list" class="vTextField" 
+                                   style="width: 95%;"
+                                   placeholder="z.B. Trompete 1"
+                                   value="{{ form.part_name.value|default:'' }}">
+                        </td>
+                        <td style="padding: 5px;">
+                            <input type="text" name="{{ form.pages.html_name }}" 
+                                   class="vTextField" style="width: 80px;"
+                                   placeholder="z.B. 1-2"
+                                   value="{{ form.pages.value|default:'' }}">
+                        </td>
+                        <td style="padding: 5px; text-align: center;">
+                            <button type="button" class="delete-row" 
+                                    style="background:none; border:none; color:#ba2121; cursor:pointer; font-weight:bold; font-size: 1.2em;" 
+                                    title="Zeile entfernen">✕</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <button type="button" id="add-row" class="button" style="background: #e1e1e1; color: #333;">+ Zeile hinzufügen</button>
+                <div>
+                    <a href="../" class="button" style="margin-right: 10px;">Abbrechen</a>
+                    <input type="submit" value="Speichern & Splitten" class="default" style="background: #417690; color: white; padding: 8px 20px;">
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script>
+    // --- PDF VORSCHAU ---
+    function previewPDF(input) {
+        const file = input.files[0];
+        const iframe = document.getElementById('pdf-iframe');
+        const msg = document.getElementById('no-pdf-msg');
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                iframe.src = e.target.result;
+                iframe.style.display = 'block';
+                msg.style.display = 'none';
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // --- FORMSET MANAGEMENT (Indizierung) ---
+    function reindexRows() {
+        const rows = document.querySelectorAll('.form-row');
+        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        rows.forEach((row, index) => {
+            row.querySelectorAll('input').forEach(input => {
+                // Ersetzt form-0-part_name durch form-index-part_name
+                input.name = input.name.replace(/form-\d+-/, `form-${index}-`);
+                if (input.id) input.id = `id_${input.name}`;
+            });
+        });
+        totalForms.value = rows.length;
+    }
+
+    // --- ZEILEN LÖSCHEN ---
+    document.getElementById('form-body').addEventListener('click', function(e) {
+        if (e.target.classList.contains('delete-row')) {
+            const rows = document.querySelectorAll('.form-row');
+            if (rows.length > 1) {
+                e.target.closest('.form-row').remove();
+                reindexRows();
+            }
+        }
+    });
+
+    // --- NEUE ZEILE ---
+    document.getElementById('add-row').addEventListener('click', function() {
+        const tableBody = document.getElementById('form-body');
+        const rows = document.querySelectorAll('.form-row');
+        const newRow = rows[rows.length - 1].cloneNode(true);
+        
+        newRow.querySelectorAll('input').forEach(i => i.value = '');
+        tableBody.appendChild(newRow);
+        reindexRows();
+    });
+
+    // --- PRESETS ---
     const PRESETS = {
-        'symphonic': ['Flute 1', 'Flute 2', 'Oboe 1', 'Oboe 2', 'Clarinet 1 in Bb', 'Clarinet 2 in Bb', 'Bassoon 1', 'Horn 1 in F', 'Horn 2 in F', 'Trumpet 1 in Bb', 'Trumpet 2 in Bb', 'Trombone 1', 'Trombone 2', 'Tuba', 'Timpani', 'Violin 1', 'Violin 2', 'Viola', 'Cello', 'Contrabass'],
-        'bigband': ['Alto Sax 1', 'Alto Sax 2', 'Tenor Sax 1', 'Tenor Sax 2', 'Baritone Sax', 'Trumpet 1', 'Trumpet 2', 'Trumpet 3', 'Trumpet 4', 'Trombone 1', 'Trombone 2', 'Trombone 3', 'Trombone 4', 'Piano', 'Guitar', 'Bass', 'Drums']
+        'symphonic': ['Flöte 1', 'Flöte 2', 'Piccoloflöte', 'Oboe 1', 'Oboe 2', 'Klarinette 1 in B', 'Klarinette 2 in B', 'Klarinette 3 in B', 
+						'Bassklarinette in B', 'Altsax 1 in Es', 'Altsax 2 in Es', 'Altsax 3 in Es', 'Tenorsax 1 in B', 'Tenorsax 2 in B', 
+						'Barisax in Es', 'Fagott 1', 'Horn 1 in F', 'Horn 2 in F', 'Horn 3 in F', 'Horn 4 in F',
+						'Trompete 1 in B', 'Trompete 2 in B', 'Trompete 3 in B', 'Trompete 4 in B',
+						'Flügelhorn 1 in B', 'Flügelhorn 2 in B', 'Flügelhorn 3 in B',
+						'Posaune 1 in C', 'Posaune 2 in C', 'Posaune 3 in C', 'Posaune 4 in C', 'Bassposaune in C',
+						'Tuba 1 in C', 'Tuba 2 in C', 'Pauken', 'Drumset', 'Percussion 1', 'Percussion 2'],
+        'bigband': ['Altsax 1 in Es', 'Altsax 2 in Es', 'Tenorsax 1 in B', 'Tenorsax 2 in B', 'Barisax in Es', 
+						'Trompete 1 in B', 'Trompete 2 in B', 'Trompete 3 in B', 'Trompete 4 in B', 
+						'Posaune 1 in C', 'Posaune 2 in C', 'Posaune 3 in C', 'Posaune 4 in C', 'Piano', 'Gitarre', 'Bass', 'Drumset']
     };
 
     function loadPreset(key) {
         const instruments = PRESETS[key];
         const tableBody = document.getElementById('form-body');
-        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
         
-        // Erstmal Tabelle leeren (außer die erste Zeile als Vorlage)
-        const rows = tableBody.querySelectorAll('.form-row');
-        const templateRow = rows[0].cloneNode(true);
-        tableBody.innerHTML = '';
+        // Eine Zeile als Template behalten
+        const templateRow = document.querySelector('.form-row').cloneNode(true);
+        templateRow.querySelectorAll('input').forEach(i => i.value = '');
         
-        instruments.forEach((inst, index) => {
+        tableBody.innerHTML = ''; // Liste leeren
+        
+        instruments.forEach((inst) => {
             let newRow = templateRow.cloneNode(true);
-            newRow.innerHTML = newRow.innerHTML.replace(/-0-/g, '-' + index + '-');
-            let input = newRow.querySelector('input[type="text"]');
-            input.value = inst;
+            newRow.querySelector('input[name*="part_name"]').value = inst;
             tableBody.appendChild(newRow);
         });
         
-        totalForms.value = instruments.length;
+        reindexRows();
     }
-
-    // Add Row Script (wie zuvor)
-    document.getElementById('add-row').addEventListener('click', function() {
-        let totalForms = document.getElementById('id_form-TOTAL_FORMS');
-        let currentCount = parseInt(totalForms.value);
-        let newRow = document.querySelector('.form-row').cloneNode(true);
-        newRow.innerHTML = newRow.innerHTML.replace(/-0-/g, '-' + currentCount + '-');
-        newRow.querySelectorAll('input').forEach(i => i.value = '');
-        document.getElementById('form-body').appendChild(newRow);
-        totalForms.value = currentCount + 1;
-    });
 </script>
+
+<style>
+    /* Admin UI Fixes */
+    #content { padding: 20px 40px !important; }
+    .form-row:hover { background: #f9f9f9; }
+    input.vTextField { border: 1px solid #ccc; padding: 4px; border-radius: 3px; }
+    .button.cancel-link { margin-left: 10px; }
+</style>
 {% endblock %}

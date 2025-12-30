@@ -26,35 +26,45 @@ def parse_page_ranges(range_string):
                 continue
     return sorted(list(pages))
 
-def process_pdf_split(piece, source_file, formset):
+def process_pdf_split(piece, source_file, valid_data_list):
     """
-    Takes the uploaded master PDF and creates Part objects based on formset data.
+    Nimmt das Master-PDF und erstellt Part-Objekte basierend auf der 
+    gefilterten Liste von Dictionaries (valid_data_list).
     """
     reader = PdfReader(source_file)
     
-    for form in formset:
-        if form.cleaned_data.get('part_name') and form.cleaned_data.get('pages'):
-            part_name = form.cleaned_data['part_name']
-            page_string = form.cleaned_data['pages']
+    # Da wir nun eine Liste von Dictionaries erhalten, iterieren wir direkt darüber
+    for entry in valid_data_list:
+        # Zugriff per Key im Dictionary statt .cleaned_data.get()
+        part_name = entry.get('part_name')
+        page_string = entry.get('pages')
+        
+        if part_name and page_string:
             page_indices = parse_page_ranges(page_string)
             
             writer = PdfWriter()
             for idx in page_indices:
-                if idx < len(reader.pages):
+                # Sicherstellen, dass die Seite im Quell-PDF existiert
+                if 0 <= idx < len(reader.pages):
                     writer.add_page(reader.pages[idx])
             
-            # Write to memory
-            buffer = io.BytesIO()
-            writer.write(buffer)
-            
-            # Create Part object (Import here to avoid circular imports)
-            from .models import Part
-            new_part = Part(piece=piece, part_name=part_name)
-            
-            # Save file
-            filename = f"{piece.title}_{part_name}.pdf".replace(" ", "_")
-            new_part.pdf_file.save(filename, ContentFile(buffer.getvalue()), save=False)
-            new_part.save()
+            # Nur speichern, wenn auch Seiten zum PDF hinzugefügt wurden
+            if len(writer.pages) > 0:
+                # In den Speicher schreiben
+                buffer = io.BytesIO()
+                writer.write(buffer)
+                
+                # Neues Part-Objekt erstellen
+                new_part = Part(piece=piece, part_name=part_name)
+                
+                # Dateinamen generieren (Sonderzeichen/Leerzeichen bereinigen)
+                safe_title = "".join(x for x in piece.title if x.isalnum() or x in "._- ")
+                safe_part = "".join(x for x in part_name if x.isalnum() or x in "._- ")
+                filename = f"{safe_title}_{safe_part}.pdf".replace(" ", "_")
+                
+                # Datei speichern
+                new_part.pdf_file.save(filename, ContentFile(buffer.getvalue()), save=False)
+                new_part.save()
 		
 
 def split_pdf_into_parts(piece, source_pdf_file, split_data):
