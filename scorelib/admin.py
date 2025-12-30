@@ -98,6 +98,26 @@ class ArrangerAdmin(admin.ModelAdmin):
 @admin.register(Publisher)
 class PublisherAdmin(admin.ModelAdmin):
     search_fields = ['name'] # Required for autocomplete
+    
+    actions = ['merge_publisher_action']
+
+    # Beispiel für Publisher (Arranger analog)
+    def merge_publisher_action(self, request, queryset):
+        if 'apply' in request.POST:
+            master_id = request.POST.get('master_id') # Muss mit master_field_name übereinstimmen
+            master = get_object_or_404(Publisher, pk=master_id)
+            others = queryset.exclude(pk=master.pk)
+            
+            # Alle Stücke umhängen
+            Piece.objects.filter(publisher__in=others).update(publisher=master)
+            others.delete()
+            
+            self.message_user(request, f"Erfolgreich in {master.name} zusammengeführt.")
+            return HttpResponseRedirect(request.get_full_path())
+        
+        return get_generic_merge_response(self, request, queryset, "Publisher mergen", "merge_publisher_action")
+
+        merge_publisher_action.short_description = "Ausgewählte Publisher zusammenführen"
 
 
 @admin.register(Piece)

@@ -85,6 +85,7 @@
             <tr>
                 <th>Titel</th>
                 <th>Komponist/Arr.</th>
+				<th>Verlag</th>
                 <th>Genres</th>
 				<th>Schwierigkeit</th>
 				<th>Stimmen</th>
@@ -102,6 +103,9 @@
 					{% endif %}
                 </td>
 				<td>
+					{{ piece.publisher.name }}
+				</td>
+				<td>
 					{% for genre in piece.genres.all %}
 						<span class="badge rounded-pill bg-light text-dark border">
 							{{ genre.name }}
@@ -113,7 +117,7 @@
 
 				<td>
 					{% if piece.difficulty %}
-						<span class="badge bg-info text-dark">Stufe {{ piece.difficulty }}</span>
+						<span class="badge rounded-pill bg-light text-dark">Stufe {{ piece.difficulty }}</span>
 					{% else %}
 						-
 					{% endif %}

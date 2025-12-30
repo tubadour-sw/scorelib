@@ -242,6 +242,10 @@ def piece_csv_import(request):
                     arranger = None
                     if row.get('Arranger'):
                         arranger, _ = Arranger.objects.get_or_create(name=row['Arranger'].strip())
+                        
+                    publisher = None
+                    if row.get('Publisher'):
+                        publisher, _ = Publisher.objects.get_or_create(name=row['Publisher'].strip())
                     
                     # Schwierigkeitsgrad 
                     diff_raw = row.get('Difficulty', '').strip()
@@ -272,6 +276,7 @@ def piece_csv_import(request):
                             'archive_label': row.get('Label', '').strip(),
                             'duration': duration_delta,
                             'difficulty': difficulty,
+                            'publisher': publisher,
                         }
                     )
                     
@@ -291,7 +296,7 @@ def piece_csv_import(request):
                     if created:
                         created_count += 1
                     else:
-                        update_or_create += 1
+                        updated_count += 1
                 
                 messages.success(request, f"Import abgeschlossen: {created_count} Stücke neu angelegt, {updated_count} Stücke aktualisiert.")
                 return redirect('admin:scorelib_piece_changelist')
