@@ -83,46 +83,48 @@
     <table class="table table-hover align-middle">
         <thead class="table-light">
             <tr>
+                <th>Label</th>
                 <th>Titel</th>
                 <th>Komponist/Arr.</th>
-				<th>Verlag</th>
+                <th>Verlag</th>
                 <th>Genres</th>
-				<th>Schwierigkeit</th>
-				<th>Stimmen</th>
+                <th>Schwierigkeit</th>
+                <th>Stimmen</th>
                 <th>Audio</th> </tr>
         </thead>
         <tbody id="pieceTable">
             {% for piece in pieces %}
             <tr class="piece-row">
+                <td>{{ piece.archive_label }}</td>
                 <td><strong>{{ piece.title }}</strong></td>
                 <td>
                     {{ piece.composer.name }}
                     {% if piece.arranger %}<br><small class="text-muted">Arr: {{ piece.arranger.name }}</small>{% endif %}
-					{% if piece.duration %}
-						<br><small class="text-muted">⏱️ {{ piece.duration }} min</small>
-					{% endif %}
+                    {% if piece.duration %}
+                        <br><small class="text-muted">⏱️ {{ piece.duration }} min</small>
+                    {% endif %}
                 </td>
-				<td>
-					{{ piece.publisher.name }}
-				</td>
-				<td>
-					{% for genre in piece.genres.all %}
-						<span class="badge rounded-pill bg-light text-dark border">
-							{{ genre.name }}
-						</span>
-					{% empty %}
-						<small class="text-muted">-</small>
-					{% endfor %}
-				</td>
+                <td>
+                    {{ piece.publisher.name }}
+                </td>
+                <td>
+                    {% for genre in piece.genres.all %}
+                        <span class="badge rounded-pill bg-light text-dark border">
+                            {{ genre.name }}
+                        </span>
+                    {% empty %}
+                        <small class="text-muted">-</small>
+                    {% endfor %}
+                </td>
 
-				<td>
-					{% if piece.difficulty %}
-						<span class="badge rounded-pill bg-light text-dark">Stufe {{ piece.difficulty }}</span>
-					{% else %}
-						-
-					{% endif %}
-				</td>
-				
+                <td>
+                    {% if piece.difficulty %}
+                        <span class="badge rounded-pill bg-light text-dark">Stufe {{ piece.difficulty }}</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                
                 <td>
                     <div class="d-flex flex-wrap gap-1">
                         {% for part in piece.parts.all %}

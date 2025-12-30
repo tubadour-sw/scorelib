@@ -12,3 +12,18 @@ th.column-archive_label .text a {
     display: inline-block;
     width: 80px;
 }
+
+/* Erhöht den Kontrast für markierte Genres in der Liste */
+select[multiple] option:checked,
+select[multiple] option:selected {
+    /* Ein dunkleres Blau für den Hintergrund */
+    background: #264b5d linear-gradient(0deg, #264b5d 0%, #264b5d 100%) !important;
+    color: white !important;
+    /* Verhindert, dass der Browser den Style bei Fokus überschreibt */
+    -webkit-text-fill-color: white !important;
+}
+
+/* Optional: Verbessert die Lesbarkeit im Fokus-Zustand */
+select[multiple]:focus option:checked {
+    background: #1a333f linear-gradient(0deg, #1a333f 0%, #1a333f 100%) !important;
+}

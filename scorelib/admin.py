@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django.urls import path, reverse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.utils.html import format_html  # <-- Das hat gefehlt!
+from django.utils.html import format_html  
 from django.http import HttpResponseRedirect
 
 # Authentifizierung
@@ -33,9 +33,18 @@ def get_generic_merge_response(admin_obj, request, queryset, title, action_name)
 
 # --- INLINES ---
 # This allows adding Parts directly while editing a Piece
+
 class PartInline(admin.TabularInline):
     model = Part
-    extra = 1 # Number of empty slots for new uploads
+    extra = 0  # Auf 0 setzen, damit nicht unnötig leere Zeilen erscheinen
+    fields = ('part_name', 'pdf_file', 'view_pdf_link')
+    readonly_fields = ('view_pdf_link',)
+
+    def view_pdf_link(self, obj):
+        if obj.pdf_file:
+            return format_html('<a href="{}" target="_blank">📄 Öffnen</a>', obj.pdf_file.url)
+        return "-"
+    view_pdf_link.short_description = "Vorschau"
 
 # This allows managing the concert program directly within the Concert view
 class ProgramItemInline(admin.TabularInline):
@@ -122,8 +131,8 @@ class PublisherAdmin(admin.ModelAdmin):
 
 @admin.register(Piece)
 class PieceAdmin(admin.ModelAdmin):
-    #change_list_template = "admin/scorelib/piece/piece_changelist.html"
-
+    inlines = [PartInline]
+    filter_horizontal = ('genres',)
     # Wir definieren die Spalten
     list_display = ('title', 'archive_label', 'composer', 'arranger', 'publisher', 'display_genres', 'difficulty', 'duration', 'view_parts_link')
     
@@ -195,7 +204,7 @@ class PieceAdmin(admin.ModelAdmin):
                 try:
                     process_pdf_split(piece, master_pdf, formset)
                     self.message_user(request, f"Erfolgreich: Stimmen für '{piece.title}' wurden erstellt.", messages.SUCCESS)
-                    return redirect('admin:scorelib_piece_changelist')
+                    return redirect('admin:scorelib_piece_change', piece.id)
                 except Exception as e:
                     self.message_user(request, f"Fehler beim Splitten: {str(e)}", messages.ERROR)
         else:
@@ -282,6 +291,8 @@ class PartAdmin(admin.ModelAdmin):
 
 @admin.register(Genre)
 class GenreAdmin(admin.ModelAdmin):
+    search_fields = ['name'] # Required for autocomplete
+    list_display = ('name',)
     actions = ['merge_genres_action']
 
     def merge_genres_action(self, request, queryset):

@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.db.models import Q, Sum
+from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -161,7 +162,7 @@ def concert_detail_view(request, concert_id=None):
 
 def concert_list_view(request):
     # Alle Konzerte nach Datum sortiert (neueste oben)
-    concerts = Concert.objects.all().order_by('-date')
+    concerts = Concert.objects.all().order_by('title').order_by('-date')
     return render(request, 'scorelib/concert_list.html', {'concerts': concerts})
 
 @login_required
@@ -230,76 +231,77 @@ def piece_csv_import(request):
                 
                 created_count = 0
                 updated_count = 0
-                for row in reader:
-                    if not row.get("Title"):
-                        continue
-                    
-                    # 1. Komponist holen oder neu anlegen
-                    if row.get('Composer'):
-                        composer, _ = Composer.objects.get_or_create(name=row['Composer'].strip())
-                    
-                    # 2. Arrangeur optional holen oder neu anlegen
-                    arranger = None
-                    if row.get('Arranger'):
-                        arranger, _ = Arranger.objects.get_or_create(name=row['Arranger'].strip())
+                with transaction.atomic():
+                    for row in reader:
+                        if not row.get("Title"):
+                            continue
                         
-                    publisher = None
-                    if row.get('Publisher'):
-                        publisher, _ = Publisher.objects.get_or_create(name=row['Publisher'].strip())
-                    
-                    # Schwierigkeitsgrad 
-                    diff_raw = row.get('Difficulty', '').strip()
-                    difficulty = int(diff_raw) if diff_raw.isdigit() else None
-                    
-                    # Dauer-Logik für DurationField
-                    duration_raw = row.get('Duration', '').strip() # Angenommen die Spalte heißt jetzt so
-                    duration_delta = None
-                    
-                    if duration_raw and ':' in duration_raw:
-                        try:
-                            parts = duration_raw.split(':')
-                            if len(parts) == 2: # mm:ss
-                                minutes, seconds = map(int, parts)
-                                duration_delta = timedelta(minutes=minutes, seconds=seconds)
-                            elif len(parts) == 3: # hh:mm:ss
-                                hours, minutes, seconds = map(int, parts)
-                                duration_delta = timedelta(hours=hours, minutes=minutes, seconds=seconds)
-                        except ValueError:
-                            pass # Falls Text in der Zeitspalte steht, ignorieren wir es
+                        # 1. Komponist holen oder neu anlegen
+                        if row.get('Composer'):
+                            composer, _ = Composer.objects.get_or_create(name=row['Composer'].strip())
+                        
+                        # 2. Arrangeur optional holen oder neu anlegen
+                        arranger = None
+                        if row.get('Arranger'):
+                            arranger, _ = Arranger.objects.get_or_create(name=row['Arranger'].strip())
                             
-                    # 3. Stück anlegen (nur wenn Titel + Komponist Kombi noch nicht existiert)
-                    piece, created = Piece.objects.update_or_create(
-                        title=row['Title'].strip(),
-                        composer=composer,
-                        defaults={
-                            'arranger': arranger,
-                            'archive_label': row.get('Label', '').strip(),
-                            'duration': duration_delta,
-                            'difficulty': difficulty,
-                            'publisher': publisher,
-                        }
-                    )
+                        publisher = None
+                        if row.get('Publisher'):
+                            publisher, _ = Publisher.objects.get_or_create(name=row['Publisher'].strip())
+                        
+                        # Schwierigkeitsgrad 
+                        diff_raw = row.get('Difficulty', '').strip()
+                        difficulty = int(diff_raw) if diff_raw.isdigit() else None
+                        
+                        # Dauer-Logik für DurationField
+                        duration_raw = row.get('Duration', '').strip() # Angenommen die Spalte heißt jetzt so
+                        duration_delta = None
+                        
+                        if duration_raw and ':' in duration_raw:
+                            try:
+                                parts = duration_raw.split(':')
+                                if len(parts) == 2: # mm:ss
+                                    minutes, seconds = map(int, parts)
+                                    duration_delta = timedelta(minutes=minutes, seconds=seconds)
+                                elif len(parts) == 3: # hh:mm:ss
+                                    hours, minutes, seconds = map(int, parts)
+                                    duration_delta = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+                            except ValueError:
+                                pass # Falls Text in der Zeitspalte steht, ignorieren wir es
+                                
+                        # 3. Stück anlegen (nur wenn Titel + Komponist Kombi noch nicht existiert)
+                        piece, created = Piece.objects.update_or_create(
+                            title=row['Title'].strip(),
+                            composer=composer,
+                            defaults={
+                                'arranger': arranger,
+                                'archive_label': row.get('Label', '').strip(),
+                                'duration': duration_delta,
+                                'difficulty': difficulty,
+                                'publisher': publisher,
+                            }
+                        )
+                        
+                        # 4. Genres verknüpfen (Mehrfachnennung mit Komma möglich)
+                        if row.get('Genres'):
+                            genre_names = [g.strip() for g in row['Genres'].split(',')]
+                            for g_name in genre_names:
+                                genre, _ = Genre.objects.get_or_create(name=g_name)
+                                piece.genres.add(genre)
+                        
+                        if row.get('Concerts'):
+                            concert_names = [g.strip() for g in row['Concerts'].split(',')]
+                            for c_name in concert_names:
+                                concert, _ = Concert.objects.get_or_create(title=c_name)
+                                piece.concerts.add(concert)
+                        
+                        if created:
+                            created_count += 1
+                        else:
+                            updated_count += 1
                     
-                    # 4. Genres verknüpfen (Mehrfachnennung mit Komma möglich)
-                    if row.get('Genres'):
-                        genre_names = [g.strip() for g in row['Genres'].split(',')]
-                        for g_name in genre_names:
-                            genre, _ = Genre.objects.get_or_create(name=g_name)
-                            piece.genres.add(genre)
-                    
-                    if row.get('Concerts'):
-                        concert_names = [g.strip() for g in row['Concerts'].split(',')]
-                        for c_name in concert_names:
-                            concert, _ = Concert.objects.get_or_create(title=c_name)
-                            piece.concerts.add(concert)
-                    
-                    if created:
-                        created_count += 1
-                    else:
-                        updated_count += 1
-                
-                messages.success(request, f"Import abgeschlossen: {created_count} Stücke neu angelegt, {updated_count} Stücke aktualisiert.")
-                return redirect('admin:scorelib_piece_changelist')
+                    messages.success(request, f"Import abgeschlossen: {created_count} Stücke neu angelegt, {updated_count} Stücke aktualisiert.")
+                    return redirect('admin:scorelib_piece_changelist')
             except UnicodeDecodeError:
                 messages.error(request, "Fehler: Die Datei konnte nicht gelesen werden. Bitte stellen Sie sicher, dass sie als CSV (UTF-8) gespeichert wurde.")
             except Exception as e:
