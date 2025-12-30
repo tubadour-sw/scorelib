@@ -325,7 +325,39 @@ class GenreAdmin(admin.ModelAdmin):
         return get_generic_merge_response(self, request, queryset, "Genres mergen", "merge_genres_action")
 
     merge_genres_action.short_description = "Ausgewählte Genres verschmelzen"
-    
+ 
+@admin.register(AudioRecording)
+class AudioRecordingAdmin(admin.ModelAdmin):
+    list_display = ('piece', 'concert', 'audio_file')
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        
+        concert_id = None
+        # 1. GET-Parameter hat Vorrang (für den JS-Reload)
+        if 'concert' in request.GET:
+            concert_id = request.GET.get('concert')
+            # Setze das Feld im Formular auf den Wert aus der URL
+            form.base_fields['concert'].initial = concert_id
+        # 2. Bestehendes Objekt
+        elif obj and obj.concert:
+            concert_id = obj.concert.id
+        # 3. POST-Daten
+        elif request.method == 'POST':
+            concert_id = request.POST.get('concert')
+
+        if concert_id:
+            # Filterung der Stücke basierend auf ProgramItems
+            form.base_fields['piece'].queryset = Piece.objects.filter(
+                programitem__concert_id=concert_id
+            ).distinct()
+        else:
+            form.base_fields['piece'].queryset = Piece.objects.none()
+
+        return form
+
+    class Media:
+        js = ('admin/js/jquery.init.js', 'js/audio_recording_helper.js')
     
 # Standard User-Admin entfernen und mit unserer Erweiterung neu setzen
 admin.site.unregister(User)
@@ -333,4 +365,3 @@ admin.site.register(User, UserAdmin)
 
 # Standard registration for simple models
 admin.site.register(Venue)
-admin.site.register(AudioRecording)

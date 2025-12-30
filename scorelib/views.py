@@ -102,8 +102,7 @@ def concert_detail_view(request, concert_id=None):
         # Ein ganz bestimmtes Konzert laden
         next_concert = get_object_or_404(Concert, pk=concert_id)
     else:
-        next_concert = Concert.objects.filter(date__isnull=False, date__gte=timezone.now()).order_by('date').prefetch_related(
-        'programitem_set__piece__audiorecording_set').first()
+        next_concert = Concert.objects.filter(date__isnull=False, date__gte=timezone.now()).order_by('date').first()
         
     context = {'concert': next_concert}
     
