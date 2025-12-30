@@ -1,8 +1,9 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.urls import path, reverse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils.html import format_html  # <-- Das hat gefehlt!
+from django.http import HttpResponseRedirect
 
 # Authentifizierung
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -17,6 +18,18 @@ from .forms import PartSplitFormSet
 from .utils import process_pdf_split
 from .views import piece_csv_import
 
+def get_generic_merge_response(admin_obj, request, queryset, title, action_name):
+    """ Rendert das Bestätigungs-Template für alle Models """
+    if queryset.count() < 2:
+        admin_obj.message_user(request, "Bitte wählen Sie mindestens zwei Einträge aus.", messages.WARNING)
+        return None
+        
+    return render(request, 'admin/generic_merge_confirmation.html', {
+        'title': title,
+        'queryset': queryset,
+        'master_field_name': 'master_id',
+        'action_name': action_name,
+    })
 
 # --- INLINES ---
 # This allows adding Parts directly while editing a Piece
@@ -35,10 +48,52 @@ class ProgramItemInline(admin.TabularInline):
 @admin.register(Composer)
 class ComposerAdmin(admin.ModelAdmin):
     search_fields = ['name'] # Required for autocomplete
+    list_display = ('name',)
+    actions = ['merge_composers_action']
+
+    # Beispiel für Composer (Arranger analog)
+    def merge_composers_action(self, request, queryset):
+        if 'apply' in request.POST:
+            master_id = request.POST.get('master_id') # Muss mit master_field_name übereinstimmen
+            master = get_object_or_404(Composer, pk=master_id)
+            others = queryset.exclude(pk=master.pk)
+            
+            # Alle Stücke umhängen
+            Piece.objects.filter(composer__in=others).update(composer=master)
+            others.delete()
+            
+            self.message_user(request, f"Erfolgreich in {master.name} zusammengeführt.")
+            return HttpResponseRedirect(request.get_full_path())
+        
+        return get_generic_merge_response(self, request, queryset, "Composer mergen", "merge_composers_action")
+
+        merge_composers_action.short_description = "Ausgewählte Composer zusammenführen"
+ 
 
 @admin.register(Arranger)
 class ArrangerAdmin(admin.ModelAdmin):
     search_fields = ['name'] # Required for autocomplete
+    
+    list_display = ('name',)
+    actions = ['merge_arrangers_action']
+
+    def merge_arrangers_action(self, request, queryset):
+        if 'apply' in request.POST:
+            master_id = request.POST.get('master_id') # Muss mit master_field_name übereinstimmen
+            master = get_object_or_404(Arranger, pk=master_id)
+            others = queryset.exclude(pk=master.pk)
+            
+            # Alle Stücke umhängen
+            Piece.objects.filter(arranger__in=others).update(arranger=master)
+            others.delete()
+            
+            self.message_user(request, f"Erfolgreich in {master.name} zusammengeführt.")
+            return HttpResponseRedirect(request.get_full_path())
+        
+        return get_generic_merge_response(self, request, queryset, "Komponisten mergen", "merge_arrangers_action")
+
+    merge_arrangers_action.short_description = "Ausgewählte Arranger zusammenführen"
+ 
 
 @admin.register(Publisher)
 class PublisherAdmin(admin.ModelAdmin):
@@ -141,6 +196,31 @@ class ConcertAdmin(admin.ModelAdmin):
     list_display = ('title', 'date', 'venue')
     list_filter = ('date', 'venue')
     inlines = [ProgramItemInline]
+    
+    actions = ['merge_concerts_action']
+
+    def merge_concerts_action(self, request, queryset):
+        if 'apply' in request.POST:
+            master_id = request.POST.get('master_id')
+            master = get_object_or_404(Concert, pk=master_id)
+            others = queryset.exclude(pk=master.pk)
+
+            for other in others:
+                # Setliste ans Ende des Master-Konzerts hängen
+                current_max_order = master.programitem_set.count()
+                for item in other.programitem_set.all():
+                    current_max_order += 1
+                    item.concert = master
+                    item.order = current_max_order
+                    item.save()
+                other.delete()
+
+            self.message_user(request, "Konzerte erfolgreich zusammengeführt.")
+            return HttpResponseRedirect(request.get_full_path())
+
+        return get_generic_merge_response(self, request, queryset, "Konzerte mergen", "merge_concerts_action")
+ 
+    merge_concerts_action.short_description = "Ausgewählte Concerts zusammenführen"
 
 @admin.register(MusicianProfile)
 class MusicianProfileAdmin(admin.ModelAdmin):
@@ -178,11 +258,35 @@ class PartAdmin(admin.ModelAdmin):
     list_filter = ('piece',)
     search_fields = ('part_name', 'piece__title')
     
+# In scorelib/admin.py
+
+@admin.register(Genre)
+class GenreAdmin(admin.ModelAdmin):
+    actions = ['merge_genres_action']
+
+    def merge_genres_action(self, request, queryset):
+        if 'apply' in request.POST:
+            master_id = request.POST.get('master_id')
+            master = get_object_or_404(Genre, pk=master_id)
+            others = queryset.exclude(pk=master.pk)
+
+            for other in others:
+                for piece in other.piece_set.all():
+                    piece.genres.add(master)
+                other.delete()
+
+            self.message_user(request, f"Genres in '{master.name}' zusammengeführt.")
+            return HttpResponseRedirect(request.get_full_path())
+
+        return get_generic_merge_response(self, request, queryset, "Genres mergen", "merge_genres_action")
+
+    merge_genres_action.short_description = "Ausgewählte Genres verschmelzen"
+    
+    
 # Standard User-Admin entfernen und mit unserer Erweiterung neu setzen
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
 
 # Standard registration for simple models
-admin.site.register(Genre)
 admin.site.register(Venue)
 admin.site.register(AudioRecording)

@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>{{ title }} zusammenführen</h2>
+<p>Wählen Sie den Haupteintrag (Master) aus, der erhalten bleiben soll:</p>
+
+<form action="" method="post">
+    {% csrf_token %}
+    <select name="{{ master_field_name }}" required>
+        <option value="">---------</option>
+        {% for obj in queryset %}
+            <option value="{{ obj.pk }}">{{ obj }}</option>
+        {% endfor %}
+    </select>
+
+    {% for obj in queryset %}
+        <input type="hidden" name="_selected_action" value="{{ obj.pk }}" />
+    {% endfor %}
+    <input type="hidden" name="action" value="{{ action_name }}" />
+    <input type="hidden" name="apply" value="True" />
+    
+    <div style="margin-top: 20px;">
+        <input type="submit" value="Jetzt zusammenführen" class="default" />
+        <a href="." class="button cancel-link">Abbrechen</a>
+    </div>
+</form>
+{% endblock %}
