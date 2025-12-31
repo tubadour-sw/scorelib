@@ -14,4 +14,5 @@ urlpatterns = [
     # abgesicherter Download
     path('download/part/<int:part_id>/', views.protected_part_download, name='protected_part_download'),
 	path('download/audio/<int:audio_id>/', views.protected_audio_download, name='protected_audio_download'),
+	path('piece/<int:pk>/', views.piece_detail, name='scorelib_piece_detail'),
 ]

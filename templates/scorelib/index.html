@@ -6,76 +6,82 @@
         <h2 class="display-6">Musikarchiv</h2>
         <p class="text-muted">Durchstöbere die gesamte Bibliothek des Orchesters.</p>
     </div>
-    <div class="col-md-4">
-        <input type="text" id="searchInput" class="form-control form-control-lg border-primary" placeholder="Titel oder Komponist suchen...">
+    <div class="col-md-6 d-flex gap-2 justify-content-md-end">
+        <input type="text" id="searchInput" class="form-control border-primary" style="max-width: 300px;" placeholder="Titel oder Komponist suchen...">
+        
+        <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
+            <i class="bi bi-filter"></i> Filter
+        </button>
     </div>
 </div>
 
-<div class="card mb-4 border-0 shadow-sm bg-light">
-    <div class="card-body">
-        <form method="GET" action="{% url 'scorelib_index' %}" class="row g-2">
-            <div class="col-md-4">
-                <label class="small fw-bold">Suche</label>
-                <input type="text" name="search" class="form-control" placeholder="Titel / Archiv-Nr..." value="{{ active_filters.search }}">
-            </div>
-            <div class="col-md-3">
-                <label class="small fw-bold">Genre</label>
-                <select name="genre" class="form-select">
-                    <option value="">Alle Genres</option>
-                    {% for g in genres %}
-                        <option value="{{ g.id }}" {% if active_filters.genre == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="small fw-bold">Stufe</label>
-                <select name="difficulty" class="form-select">
-                    <option value="">Alle</option>
-                    {% for i in "123456" %}<option value="{{ i }}" {% if active_filters.difficulty == i %}selected{% endif %}>{{ i }}</option>{% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="small fw-bold">Konzert / Projekt</label>
-                <select name="concert" class="form-select">
-                    <option value="">Alle Konzerte</option>
-                    {% for c in concerts %}
-                        <option value="{{ c.id }}" {% if active_filters.concert == c.id|stringformat:"s" %}selected{% endif %}>{{ c.title }} ({{ c.date|date:"Y" }})</option>
-                    {% endfor %}
-                </select>
-            </div>
+<div class="collapse {% if request.GET.genre or request.GET.difficulty or request.GET.concert %}show{% endif %}" id="filterCollapse">
+    <div class="card mb-4 border-0 shadow-sm bg-light">
+        <div class="card-body">
+            <form method="GET" action="{% url 'scorelib_index' %}" class="row g-2">
+                <div class="col-md-4">
+                    <label class="small fw-bold">Suche</label>
+                    <input type="text" name="search" class="form-control" placeholder="Titel / Archiv-Nr..." value="{{ active_filters.search }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold">Genre</label>
+                    <select name="genre" class="form-select">
+                        <option value="">Alle Genres</option>
+                        {% for g in genres %}
+                            <option value="{{ g.id }}" {% if active_filters.genre == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="small fw-bold">Stufe</label>
+                    <select name="difficulty" class="form-select">
+                        <option value="">Alle</option>
+                        {% for i in "123456" %}<option value="{{ i }}" {% if active_filters.difficulty == i %}selected{% endif %}>{{ i }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold">Konzert / Projekt</label>
+                    <select name="concert" class="form-select">
+                        <option value="">Alle Konzerte</option>
+                        {% for c in concerts %}
+                            <option value="{{ c.id }}" {% if active_filters.concert == c.id|stringformat:"s" %}selected{% endif %}>{{ c.title }} ({{ c.date|date:"Y" }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            <div class="col-md-3">
-                <label class="small fw-bold">Komponist</label>
-                <select name="composer" class="form-select">
-                    <option value="">Alle</option>
-                    {% for c in composers %}
-                        <option value="{{ c.id }}" {% if active_filters.composer == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="small fw-bold">Arrangeur</label>
-                <select name="arranger" class="form-select">
-                    <option value="">Alle</option>
-                    {% for a in arrangers %}
-                        <option value="{{ a.id }}" {% if active_filters.arranger == a.id|stringformat:"s" %}selected{% endif %}>{{ a.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="small fw-bold">Verlag</label>
-                <select name="publisher" class="form-select">
-                    <option value="">Alle</option>
-                    {% for p in publishers %}
-                        <option value="{{ p.id }}" {% if active_filters.publisher == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 d-flex align-items-end gap-2">
-                <button type="submit" class="btn btn-primary flex-grow-1">Filtern</button>
-                <a href="{% url 'scorelib_index' %}" class="btn btn-outline-secondary">Reset</a>
-            </div>
-        </form>
+                <div class="col-md-3">
+                    <label class="small fw-bold">Komponist</label>
+                    <select name="composer" class="form-select">
+                        <option value="">Alle</option>
+                        {% for c in composers %}
+                            <option value="{{ c.id }}" {% if active_filters.composer == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold">Arrangeur</label>
+                    <select name="arranger" class="form-select">
+                        <option value="">Alle</option>
+                        {% for a in arrangers %}
+                            <option value="{{ a.id }}" {% if active_filters.arranger == a.id|stringformat:"s" %}selected{% endif %}>{{ a.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold">Verlag</label>
+                    <select name="publisher" class="form-select">
+                        <option value="">Alle</option>
+                        {% for p in publishers %}
+                            <option value="{{ p.id }}" {% if active_filters.publisher == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1">Filtern</button>
+                    <a href="{% url 'scorelib_index' %}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -88,15 +94,21 @@
                 <th>Komponist/Arr.</th>
                 <th>Verlag</th>
                 <th>Genres</th>
-                <th>Schwierigkeit</th>
-                <th>Stimmen</th>
+                <th>Stufe</th>
+                <th>Konzerte</th>
                 <th>Audio</th> </tr>
         </thead>
         <tbody id="pieceTable">
             {% for piece in pieces %}
             <tr class="piece-row">
                 <td>{{ piece.archive_label }}</td>
-                <td><strong>{{ piece.title }}</strong></td>
+                <td>
+					<strong>
+					<a href="{% url 'scorelib_piece_detail' piece.id %}" class="fw-bold text-decoration-none text-dark">
+						{{ piece.title }}
+					</a>
+					</strong>
+				</td>
                 <td>
                     {{ piece.composer.name }}
                     {% if piece.arranger %}<br><small class="text-muted">Arr: {{ piece.arranger.name }}</small>{% endif %}
@@ -126,15 +138,15 @@
                 </td>
                 
                 <td>
-                    <div class="d-flex flex-wrap gap-1">
-                        {% for part in piece.parts.all %}
-                            {% if user.profile.can_view_part or user.is_staff %}
-                                <a href="{% url 'protected_part_download' part.id %}" class="btn btn-sm btn-outline-dark">
-                                    {{ part.part_name }}
-                                </a>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
+                    {% for item in piece.programitem_set.all %}
+                        <div class="mb-1">
+                            <span class="badge bg-light text-dark" style="font-size: 0.85rem;">
+                                📅 {{ item.concert.title }}
+                            </span>
+                        </div>
+                    {% empty %}
+                        <small class="text-muted">-</small>
+                    {% endfor %}
                 </td>
                 <td>
                     {% for rec in piece.audiorecording_set.all %}

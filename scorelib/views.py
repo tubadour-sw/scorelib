@@ -356,3 +356,36 @@ def index(request):
         'active_filters': request.GET
     }
     return render(request, 'scorelib/index.html', context)
+
+
+from django.shortcuts import render, get_object_or_404
+from .models import Piece
+
+def piece_detail(request, pk):
+    piece = get_object_or_404(Piece, pk=pk)
+    user_profile = getattr(request.user, 'profile', None)
+    
+    # Alle Stimmen holen und alphabetisch nach Namen sortieren
+    all_parts = list(piece.parts.all())
+    all_parts.sort(key=lambda x: x.part_name.lower())
+    
+    user_parts = []
+
+    if request.user.is_staff:
+        user_parts = all_parts
+    elif user_profile and user_profile.instrument_filter:
+        filters = [f.strip().lower() for f in user_profile.instrument_filter.split(',')]
+        for part in all_parts:
+            if any(f in part.part_name.lower() for f in filters):
+                user_parts.append(part)
+        
+        # Auch die gefilterte Liste sicherheitshalber sortieren
+        user_parts.sort(key=lambda x: x.part_name.lower())
+
+    return render(request, 'scorelib/piece_detail.html', {
+        'piece': piece,
+        'user_parts': user_parts,
+        'all_parts': all_parts,
+        'recordings': piece.audiorecording_set.all(),
+        'program_items': piece.programitem_set.select_related('concert').order_by('-concert__date'),
+    })

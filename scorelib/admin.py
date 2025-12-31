@@ -144,7 +144,7 @@ class PieceAdmin(admin.ModelAdmin):
         return ", ".join([genre.name for genre in obj.genres.all()])
         
     class Media:
-        # Hier definieren wir CSS, das nur für diesen Admin-Bereich geladen wird
+        js = ('admin/js/jquery.init.js', 'js/admin_filter_collapse.js')
         css = {
             'all': ('css/admin_custom.css',)
         }
