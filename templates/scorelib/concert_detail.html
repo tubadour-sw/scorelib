@@ -8,9 +8,9 @@
                     <p class="lead text-secondary mt-0">{{ concert.subtitle }}</p>
                 {% endif %}
                 <p class="lead">
-				{% if concert.date %}
+                {% if concert.date %}
                     <i class="bi bi-calendar-event"></i> {{ concert.date|date:"d. F Y, H:i" }} Uhr<br>
-				{% endif %}
+                {% endif %}
                     <i class="bi bi-geo-alt"></i> {{ concert.venue.name }}
                 </p>
                 
@@ -19,7 +19,11 @@
                     {% for item in program_data %}
                         <div class="list-group-item list-group-item-action p-3">
                             <div class="d-flex w-100 justify-content-between">
-                                <h5 class="mb-1">{{ forloop.counter }}. {{ item.piece.title }}</h5>
+                                <h5 class="mb-1">{{ forloop.counter }}. 
+                                    <a href="{% url 'scorelib_piece_detail' item.piece.id %}" class="text-decoration-none fw-bold">
+                                        {{ item.piece.title }} {{ item.piece.id }}
+                                    </a>
+                                </h5>
                                 <small class="text-muted">{{ item.piece.archive_label }}</small>
                             </div>
                             <p class="mb-2 text-secondary">{{ item.piece.composer.name }}</p>

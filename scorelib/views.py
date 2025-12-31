@@ -18,12 +18,16 @@ from .forms import CSVPiecesImportForm
 @login_required
 def scorelib_index(request):
     # Wir laden die recordings direkt mit, um Datenbankanfragen in der Schleife zu vermeiden
-    pieces = Piece.objects.all().order_by('title').prefetch_related(
-        'composer', 
-        'arranger', 
-        'parts', 
-        'audiorecording_set' # Falls du keinen related_name='recordings' hast
+    pieces = Piece.objects.select_related(
+		'composer', 
+		'arranger', 
+		'publisher'
+	).order_by('title').prefetch_related(
+        'concerts', 
+		'genres',
+        'audiorecording_set'
     )
+	
     
     # Filterwerte aus der URL (GET) holen
     f_search = request.GET.get('search')
@@ -157,11 +161,11 @@ def concert_detail_view(request, concert_id=None):
             
         context['program_data'] = program_data
 
-    return render(request, 'scorelib/next_concert.html', context)
+    return render(request, 'scorelib/concert_detail.html', context)
 
 def concert_list_view(request):
     # Alle Konzerte nach Datum sortiert (neueste oben)
-    concerts = Concert.objects.all().order_by('title').order_by('-date')
+    concerts = Concert.objects.all().order_by('title')
     return render(request, 'scorelib/concert_list.html', {'concerts': concerts})
 
 @login_required
