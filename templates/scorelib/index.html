@@ -141,9 +141,13 @@
                 <td>
                     {% for item in piece.programitem_set.all %}
                         <div class="mb-1">
+							<a href="{% url 'concert_detail' item.concert.id %}" class="text-decoration-none">
                             <span class="badge bg-light text-dark" style="font-size: 0.85rem;">
-                                📅 {{ item.concert.title }}
+                                📅 
+                                    {{ item.concert.title }}
+                                
                             </span>
+							</a>
                         </div>
                     {% empty %}
                         <small class="text-muted">-</small>
