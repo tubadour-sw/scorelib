@@ -88,16 +88,17 @@
 <div class="bg-white shadow-sm rounded">
     <table class="table table-hover align-middle">
         <thead class="table-light">
-            <tr>
-                <th>Label</th>
-                <th>Titel</th>
-                <th>Komponist/Arr.</th>
-                <th>Verlag</th>
-                <th>Genres</th>
-                <th>Stufe</th>
-                <th>Konzerte</th>
-                <th>Audio</th> </tr>
-        </thead>
+			<tr>
+				<th onclick="sortTable(0)" style="cursor:pointer">Label ↕</th>
+				<th onclick="sortTable(1)" style="cursor:pointer">Titel ↕</th>
+				<th onclick="sortTable(2)" style="cursor:pointer">Komponist ↕</th>
+				<th onclick="sortTable(3)" style="cursor:pointer">Verlag ↕</th>
+				<th onclick="sortTable(4, 'count')" style="cursor:pointer">Genres ↕</th>
+				<th onclick="sortTable(5)" style="cursor:pointer">Stufe ↕</th>
+				<th onclick="sortTable(6, 'count')" style="cursor:pointer">Konzerte ↕</th>
+				<th>Audio</th> 
+			</tr>
+		</thead>
         <tbody id="pieceTable">
             {% for piece in pieces %}
             <tr class="piece-row">
@@ -183,4 +184,46 @@
         });
     });
 </script>
+
+<script>
+    // 1. Dein bestehendes Skript für die Echtzeit-Suche (bleibt erhalten)
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+        let filter = this.value.toLowerCase();
+        let rows = document.querySelectorAll('.piece-row');
+        rows.forEach(row => {
+            let text = row.innerText.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+
+    // 2. Das neue Skript für die Tabellen-Sortierung
+    let sortDirections = {};
+
+    function sortTable(colIndex, type = 'text') {
+        const table = document.querySelector("table tbody");
+        const rows = Array.from(table.querySelectorAll("tr"));
+        
+        sortDirections[colIndex] = !sortDirections[colIndex];
+        const dir = sortDirections[colIndex] ? 1 : -1;
+
+        const sortedRows = rows.sort((a, b) => {
+            // Hilfsfunktion um den Wert aus der Zelle zu ziehen
+            let valA = a.cells[colIndex].innerText.trim();
+            let valB = b.cells[colIndex].innerText.trim();
+
+            if (type === 'count') {
+                // Zählt Badges (Genres) oder Divs (Konzerte)
+                valA = a.cells[colIndex].querySelectorAll('.badge, div.mb-1').length;
+                valB = b.cells[colIndex].querySelectorAll('.badge, div.mb-1').length;
+                return (valA - valB) * dir;
+            }
+
+            // Standard Text-Sortierung (beachtet Zahlen korrekt dank numeric:true)
+            return valA.localeCompare(valB, undefined, {numeric: true, sensitivity: 'base'}) * dir;
+        });
+
+        table.append(...sortedRows);
+    }
+</script>
+
 {% endblock %}
