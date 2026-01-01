@@ -21,13 +21,21 @@
                             <div class="d-flex w-100 justify-content-between">
                                 <h5 class="mb-1">{{ forloop.counter }}. 
                                     <a href="{% url 'scorelib_piece_detail' item.piece.id %}" class="text-decoration-none fw-bold">
-                                        {{ item.piece.title }} {{ item.piece.id }}
+                                        {{ item.piece.title }}
                                     </a>
                                 </h5>
-                                <small class="text-muted">{{ item.piece.archive_label }}</small>
+                                <small class="text-muted"><strong>{{ item.piece.archive_label }}</strong></small>
                             </div>
-                            <p class="mb-2 text-secondary">{{ item.piece.composer.name }}</p>
-
+                            <div class="d-flex w-100 justify-content-between">
+                                <p class="mb-2 text-secondary">{{ item.piece.composer.name }}</p>
+                                <small class="text-muted"><em>
+                                    {% if item.piece.duration %}
+                                        {{ item.piece.duration }}
+                                    {% else %}
+                                        -:--:--
+                                    {% endif %}
+                                </em></small>
+                            </div>
                             <div class="mt-2">
                                 {% if item.user_parts %}
                                     <span class="text-success small d-block mb-1">Deine Noten:</span>
@@ -63,7 +71,7 @@
                         </div>
                     {% endfor %}
                 </div>
-                <strong>Gesamtdauer: {{ formatted_duration }}</strong>
+                <strong>Gesamtdauer: mindestens {{ formatted_duration }}</strong>
             </div>
 
             <div class="col-md-4">
