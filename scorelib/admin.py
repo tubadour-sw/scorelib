@@ -235,8 +235,9 @@ class PieceAdmin(admin.ModelAdmin):
 
 @admin.register(Concert)
 class ConcertAdmin(admin.ModelAdmin):
-    list_display = ('title', 'date', 'venue')
+    list_display = ('title', 'subtitle', 'date', 'venue')
     list_filter = ('date', 'venue')
+    search_fields = ['title', 'subtitle']
     inlines = [ProgramItemInline]
     
     actions = ['merge_concerts_action']

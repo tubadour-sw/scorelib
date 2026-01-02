@@ -19,15 +19,15 @@ from .forms import CSVPiecesImportForm
 def scorelib_index(request):
     # Wir laden die recordings direkt mit, um Datenbankanfragen in der Schleife zu vermeiden
     pieces = Piece.objects.select_related(
-		'composer', 
-		'arranger', 
-		'publisher'
-	).order_by('title').prefetch_related(
+        'composer', 
+        'arranger', 
+        'publisher'
+    ).order_by('title').prefetch_related(
         'concerts', 
-		'genres',
+        'genres',
         'audiorecording_set'
     )
-	
+    
     
     # Filterwerte aus der URL (GET) holen
     f_search = request.GET.get('search')
@@ -275,10 +275,10 @@ def piece_csv_import(request):
                         # 3. Stück anlegen (nur wenn Titel + Komponist Kombi noch nicht existiert)
                         piece, created = Piece.objects.update_or_create(
                             title=row['Title'].strip(),
+                            archive_label=row.get('Label', '').strip(),
                             composer=composer,
                             defaults={
                                 'arranger': arranger,
-                                'archive_label': row.get('Label', '').strip(),
                                 'duration': duration_delta,
                                 'difficulty': difficulty,
                                 'publisher': publisher,

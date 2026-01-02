@@ -79,7 +79,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Important for your Musician login:
-LOGIN_REDIRECT_URL = 'scorelib_index'
+LOGIN_REDIRECT_URL = 'next_concert'
 LOGOUT_REDIRECT_URL = 'login'
 
 
@@ -107,8 +107,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Wo soll Django den User hinschicken, wenn er nicht eingeloggt ist?
 LOGIN_URL = 'login'
 
-# Wo soll der User nach dem erfolgreichen Login landen?
-LOGIN_REDIRECT_URL = 'scorelib_index'
-
-# Wo soll der User nach dem Logout landen?
-LOGOUT_REDIRECT_URL = 'login'
