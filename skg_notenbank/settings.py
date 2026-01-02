@@ -13,7 +13,18 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-your-fixed-dev
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True 
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1'] # Add your server domain later
+ALLOWED_HOSTS = [
+    'uni-brachbach.de', 
+    'www.uni-brachbach.de', 
+    'raspimusic',
+    '192.168.178.40',
+    'localhost', 
+    '127.0.0.1'] # Add your server domain later
+CSRF_TRUSTED_ORIGINS = [
+    'https://uni-brachbach.de', 
+    'https://www.uni-brachbach.de',
+    'http://192.168.178.40', 
+    'http://raspimusic']
 
 
 # 3. APPLICATION DEFINITION
@@ -79,6 +90,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Important for your Musician login:
+LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'next_concert'
 LOGOUT_REDIRECT_URL = 'login'
 
@@ -104,6 +116,5 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # 8. DEFAULT PRIMARY KEY FIELD
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Wo soll Django den User hinschicken, wenn er nicht eingeloggt ist?
-LOGIN_URL = 'login'
+
 
