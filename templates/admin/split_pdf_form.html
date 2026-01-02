@@ -94,13 +94,17 @@
         const msg = document.getElementById('no-pdf-msg');
 
         if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                iframe.src = e.target.result;
-                iframe.style.display = 'block';
-                msg.style.display = 'none';
-            }
-            reader.readAsDataURL(file);
+            // Erzeugt eine temporäre URL, die direkt auf die Datei im RAM zeigt
+            const objectURL = URL.createObjectURL(file);
+            
+            iframe.src = objectURL;
+            iframe.style.display = 'block';
+            msg.style.display = 'none';
+
+            // Optional: Speicher freigeben, wenn das PDF geladen ist
+            iframe.onload = function() {
+                // URL.revokeObjectURL(objectURL); // Nur wenn man die Vorschau nicht mehrmals braucht
+            };
         }
     }
 
@@ -143,15 +147,15 @@
     // --- PRESETS ---
     const PRESETS = {
         'symphonic': ['Flöte 1', 'Flöte 2', 'Piccoloflöte', 'Oboe 1', 'Oboe 2', 'Klarinette 1 in B', 'Klarinette 2 in B', 'Klarinette 3 in B', 
-						'Bassklarinette in B', 'Altsax 1 in Es', 'Altsax 2 in Es', 'Altsax 3 in Es', 'Tenorsax 1 in B', 'Tenorsax 2 in B', 
-						'Barisax in Es', 'Fagott 1', 'Horn 1 in F', 'Horn 2 in F', 'Horn 3 in F', 'Horn 4 in F',
-						'Trompete 1 in B', 'Trompete 2 in B', 'Trompete 3 in B', 'Trompete 4 in B',
-						'Flügelhorn 1 in B', 'Flügelhorn 2 in B', 'Flügelhorn 3 in B',
-						'Posaune 1 in C', 'Posaune 2 in C', 'Posaune 3 in C', 'Posaune 4 in C', 'Bassposaune in C',
-						'Tuba 1 in C', 'Tuba 2 in C', 'Pauken', 'Drumset', 'Percussion 1', 'Percussion 2'],
+                        'Bassklarinette in B', 'Altsax 1 in Es', 'Altsax 2 in Es', 'Altsax 3 in Es', 'Tenorsax 1 in B', 'Tenorsax 2 in B', 
+                        'Barisax in Es', 'Fagott 1', 'Horn 1 in F', 'Horn 2 in F', 'Horn 3 in F', 'Horn 4 in F',
+                        'Trompete 1 in B', 'Trompete 2 in B', 'Trompete 3 in B', 'Trompete 4 in B',
+                        'Flügelhorn 1 in B', 'Flügelhorn 2 in B', 'Flügelhorn 3 in B',
+                        'Posaune 1 in C', 'Posaune 2 in C', 'Posaune 3 in C', 'Posaune 4 in C', 'Bassposaune in C',
+                        'Tuba 1 in C', 'Tuba 2 in C', 'Pauken', 'Drumset', 'Percussion 1', 'Percussion 2'],
         'bigband': ['Altsax 1 in Es', 'Altsax 2 in Es', 'Tenorsax 1 in B', 'Tenorsax 2 in B', 'Barisax in Es', 
-						'Trompete 1 in B', 'Trompete 2 in B', 'Trompete 3 in B', 'Trompete 4 in B', 
-						'Posaune 1 in C', 'Posaune 2 in C', 'Posaune 3 in C', 'Posaune 4 in C', 'Piano', 'Gitarre', 'Bass', 'Drumset']
+                        'Trompete 1 in B', 'Trompete 2 in B', 'Trompete 3 in B', 'Trompete 4 in B', 
+                        'Posaune 1 in C', 'Posaune 2 in C', 'Posaune 3 in C', 'Posaune 4 in C', 'Piano', 'Gitarre', 'Bass', 'Drumset']
     };
 
     function loadPreset(key) {

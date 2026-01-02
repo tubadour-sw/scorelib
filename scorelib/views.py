@@ -240,8 +240,7 @@ def piece_csv_import(request):
                             continue
                         
                         # 1. Komponist holen oder neu anlegen
-                        if row.get('Composer'):
-                            composer, _ = Composer.objects.get_or_create(name=row['Composer'].strip())
+                        composer, _ = Composer.objects.get_or_create(name=row.get('Composer', '').strip())
                         
                         # 2. Arrangeur optional holen oder neu anlegen
                         arranger = None
