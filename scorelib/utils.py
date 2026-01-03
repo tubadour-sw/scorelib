@@ -60,7 +60,7 @@ def process_pdf_split(piece, source_file, valid_data_list):
                 # Dateinamen generieren (Sonderzeichen/Leerzeichen bereinigen)
                 safe_title = "".join(x for x in piece.title if x.isalnum() or x in "._- ")
                 safe_part = "".join(x for x in part_name if x.isalnum() or x in "._- ")
-                filename = f"{safe_title}_{safe_part}.pdf".replace(" ", "_")
+                filename = f"{safe_title}_{safe_part}-id{piece.id}.pdf".replace(" ", "_")
                 
                 # Datei speichern
                 new_part.pdf_file.save(filename, ContentFile(buffer.getvalue()), save=False)
