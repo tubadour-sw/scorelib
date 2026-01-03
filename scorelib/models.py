@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+import fnmatch
 
 # --- Core Data (Stammdaten) ---
 
@@ -60,7 +61,7 @@ class MusicianProfile(models.Model):
             return False
         filters = [f.strip().lower() for f in self.instrument_filter.split(',')]
         part_name_lower = part_name.lower()
-        return any(f in part_name_lower for f in filters)
+        return any(fnmatch.fnmatch(part_name_lower, f) for f in filters)
 
     def __str__(self):
         return f"Profile of {self.user.username}"

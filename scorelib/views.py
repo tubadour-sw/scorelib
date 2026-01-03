@@ -377,9 +377,8 @@ def piece_detail(request, pk):
     if request.user.is_staff:
         user_parts = all_parts
     elif user_profile and user_profile.instrument_filter:
-        filters = [f.strip().lower() for f in user_profile.instrument_filter.split(',')]
         for part in all_parts:
-            if any(f in part.part_name.lower() for f in filters):
+            if user_profile.can_view_part(part.part_name):
                 user_parts.append(part)
         
         # Auch die gefilterte Liste sicherheitshalber sortieren
