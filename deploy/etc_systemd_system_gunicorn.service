@@ -1,0 +1,16 @@
+[Unit]
+Description=gunicorn daemon for SKG Notenbank
+After=network.target
+
+[Service]
+User=pi
+Group=www-data
+WorkingDirectory=/home/pi/skg-notenbank
+ExecStart=/home/pi/skg-notenbank/venv/bin/gunicorn \
+      --access-logfile - \
+      --workers 3 \
+      --bind unix:/home/pi/skg-notenbank/gunicorn.sock \
+      skg_notenbank.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
