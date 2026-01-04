@@ -182,7 +182,8 @@ def protected_part_download(request, part_id):
     file_path = part.pdf_file.path
     if os.path.exists(file_path):
         with open(file_path, 'rb') as fh:
-            response = HttpResponse(fh.read(), content_type="application/pdf")
+            #response = HttpResponse(fh.read(), content_type="application/pdf")
+            response = FileResponse(open(file_path, 'rb'), content_type="application/pdf") 
             # Öffnet das PDF im Browser statt es sofort herunterzuladen
             response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
             return response

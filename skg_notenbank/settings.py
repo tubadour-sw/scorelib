@@ -9,9 +9,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # For local development, keep SECRET_KEY as is. 
 # On a server, use an environment variable.
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-your-fixed-dev-key-here')
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True 
+DEBUG = False 
 
 ALLOWED_HOSTS = [
     'uni-brachbach.de', 
