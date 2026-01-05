@@ -22,3 +22,14 @@ Typ,Üblicher Pfad auf dem Pi
 System-D Dienst,/etc/systemd/system/gunicorn.service
 Projekt-Verzeichnis,/home/pi/skg-notenbank/
 Socket (Kommunikation),/run/gunicorn.sock (oder im Projektordner, hier: /home/pi/
+
+Backups
+-----------
+cp scripts/.env.example scripts/.env
+nano scripts/.end
+
+Zugangs zum SMTP server eintragen
+
+crontab -e
+
+00 03 * * * /home/pi/skg-notenbank/scripts/backup_db.sh >> /home/pi/skg-notenbank/backups/backup_log.txt 2>&1
