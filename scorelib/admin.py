@@ -269,6 +269,37 @@ class ConcertAdmin(admin.ModelAdmin):
 class MusicianProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'instrument_filter')
     search_fields = ('user__username', 'instrument_filter')
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('unmatched-parts/', self.admin_site.admin_view(self.unmatched_parts_view), name='unmatched-parts'),
+        ]
+        return custom_urls + urls
+
+    def unmatched_parts_view(self, request):
+        all_parts = Part.objects.select_related('piece').all()
+        all_profiles = MusicianProfile.objects.all()
+        
+        # Hol dir alle aktiven Filter-Muster zur Kontrolle
+        active_filters = []
+        for p in all_profiles:
+            active_filters.extend([f.strip().lower() for f in p.instrument_filter.split(',') if f.strip()])
+        active_filters = list(set(active_filters)) # Duplikate entfernen
+
+        unmatched = []
+        for part in all_parts:
+            if not any(profile.can_view_part(part.part_name) for profile in all_profiles):
+                unmatched.append(part)
+
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'Verwaiste Stimmen Analyse',
+            'unmatched_parts': unmatched,
+            'active_filters': active_filters, # Neu im Kontext
+            'opts': self.model._meta,
+        }
+        return render(request, 'admin/unmatched_parts.html', context)
 
 # --- User & Profile Integration ---
 

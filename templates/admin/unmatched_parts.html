@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div id="content-main">
+<div style="background: #f8f8f8; padding: 10px; border: 1px solid #ddd; margin-bottom: 20px;">
+    <strong>Aktive Filter im System:</strong> {{ active_filters|join:", " }}
+</div>
+    <p>Die folgenden Stimmen werden von <strong>keinem</strong> der aktuell definierten Musiker-Filter erfasst:</p>
+    <div class="module">
+        <table style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Stimme (Part Name)</th>
+                    <th>Musikstück (Piece)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for part in unmatched_parts %}
+                <tr class="{% cycle 'row1' 'row2' %}">
+                    <td><strong>{{ part.part_name }}</strong></td>
+                    <td>{{ part.piece.title }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3">Hervorragend! Alle Stimmen werden von mindestens einem Filter abgedeckt.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="submit-row">
+        <a href="{% url 'admin:scorelib_musicianprofile_changelist' %}" class="closelink">Zurück zur Übersicht</a>
+    </div>
+</div>
+{% endblock %}

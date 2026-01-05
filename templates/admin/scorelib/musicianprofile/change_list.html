@@ -1,0 +1,9 @@
+{% extends "admin/change_list.html" %}
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="unmatched-parts/" class="addlink" style="background-color: #ba2121;">
+            🔍 Verwaiste Stimmen prüfen
+        </a>
+    </li>
+{% endblock %}
