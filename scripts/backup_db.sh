@@ -42,6 +42,7 @@ echo "$CURRENT_STATE" > "$STATE_FILE"
 
 # 6. E-Mail Benachrichtigung
 FILE_SIZE=$(du -h "$BACKUP_DIR/$BACKUP_NAME" | cut -f1)
+SPACE_LEFT=$(df -h "$BACKUP_DIR")
 MAIL_SUBJECT="✅ Backup SKG Notenbank erstellt"
 MAIL_BODY="Ein neues Backup wurde erstellt, da Änderungen an der Datenbank oder den Dateien erkannt wurden.
 
@@ -49,6 +50,10 @@ Datei: $BACKUP_NAME
 Größe: $FILE_SIZE
 Zeitpunkt: $(date)
 
-Es werden weiterhin die letzten 10 Backups im Verzeichnis aufbewahrt."
+Es werden weiterhin die letzten 10 Backups im Verzeichnis aufbewahrt.
+Freier Speicherplatz: 
+
+$SPACE_LEFT
+"
 
 python3 "$MAIL_SCRIPT" "$MAIL_SUBJECT" "$MAIL_BODY"
