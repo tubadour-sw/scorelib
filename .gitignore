@@ -4,3 +4,5 @@ venv/
 media/
 __pycache__/
 backup/
+scripts/.env
+.env
