@@ -68,11 +68,6 @@ class InstrumentGroup(models.Model):
 
 class MusicianProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    instrument_filter = models.CharField(
-        max_length=255, 
-        help_text="Comma-separated list of allowed instruments (e.g. 'Clarinet, Saxophone')"
-    )
-    
     instrument_groups = models.ManyToManyField(InstrumentGroup, blank=True)
 
     def can_view_part(self, part_name):

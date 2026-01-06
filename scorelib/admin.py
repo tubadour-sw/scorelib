@@ -268,7 +268,33 @@ class ConcertAdmin(admin.ModelAdmin):
 @admin.register(InstrumentGroup)
 class InstrumentGroupAdmin(admin.ModelAdmin):
     list_display = ('name', 'filter_strings')
-    
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            # Die URL liegt nun unter /admin/scorelib/instrumentgroup/unmatched-parts/
+            path('unmatched-parts/', self.admin_site.admin_view(self.unmatched_parts_view), name='unmatched-parts'),
+        ]
+        return custom_urls + urls
+
+    def unmatched_parts_view(self, request):
+        all_parts = Part.objects.select_related('piece').all()
+        # Wir nutzen die optimierte Logik über die Gruppen
+        all_groups = InstrumentGroup.objects.all()
+        
+        unmatched = []
+        for part in all_parts:
+            if not any(group.matches_part(part.part_name) for group in all_groups):
+                unmatched.append(part)
+
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'Verwaiste Stimmen (Keine Gruppe passt)',
+            'unmatched_parts': unmatched,
+            'opts': self.model._meta, # Wichtig für Breadcrumbs und Design
+        }
+        return render(request, 'admin/unmatched_parts.html', context)
+
     
 @admin.register(MusicianProfile)
 class MusicianProfileAdmin(admin.ModelAdmin):
@@ -281,34 +307,6 @@ class MusicianProfileAdmin(admin.ModelAdmin):
         
     display_groups.short_description = 'Instrumente'
     
-    
-    def get_urls(self):
-        urls = super().get_urls()
-        custom_urls = [
-            path('unmatched-parts/', self.admin_site.admin_view(self.unmatched_parts_view), name='unmatched-parts'),
-        ]
-        return custom_urls + urls
-
-    def unmatched_parts_view(self, request):
-        all_parts = Part.objects.select_related('piece').all()
-        all_groups = InstrumentGroup.objects.all() # Wir holen Gruppen statt Profile
-        
-        unmatched = []
-        for part in all_parts:
-            # Wir prüfen nur noch gegen die definierten Instrumenten-Gruppen
-            is_covered = any(group.matches_part(part.part_name) for group in all_groups)
-            
-            if not is_covered:
-                unmatched.append(part)
-
-        context = {
-            **self.admin_site.each_context(request),
-            'title': 'Verwaiste Stimmen (Keiner Gruppe zugeordnet)',
-            'unmatched_parts': unmatched,
-            'opts': self.model._meta,
-        }
-        return render(request, 'admin/unmatched_parts.html', context)
-
 # --- User & Profile Integration ---
 
 class MusicianProfileInline(admin.StackedInline):
