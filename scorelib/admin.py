@@ -329,8 +329,12 @@ class UserAdmin(BaseUserAdmin):
         return super().get_inline_instances(request, obj)
 
     def get_instruments(self, obj):
-        return obj.profile.instrument_filter if hasattr(obj, 'profile') else "-"
-    get_instruments.short_description = 'Instruments'
+        # Wir prüfen, ob das Profil existiert und geben die Gruppennamen aus
+        if hasattr(obj, 'profile'):
+            return ", ".join([g.name for g in obj.profile.instrument_groups.all()])
+        return "-"
+        
+    get_instruments.short_description = 'Instrumente' # Titel der Spalte
 
 @admin.register(Part)
 class PartAdmin(admin.ModelAdmin):
