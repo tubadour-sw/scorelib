@@ -393,3 +393,6 @@ def piece_detail(request, pk):
         'recordings': piece.audiorecording_set.all(),
         'program_items': piece.programitem_set.select_related('concert').order_by('-concert__date'),
     })
+    
+def legal_view(request):
+    return render(request, 'scorelib/legal.html')
