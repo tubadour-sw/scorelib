@@ -10,7 +10,9 @@ server {
     }
 
     location /media/ {
-        alias /home/pi/skg-notenbank/media/; # Hier liegen deine PDFs
+        alias /home/pi/skg-notenbank/media/; 
+        expires 7d;
+        add_header Cache-Control "public";
     }
 
     location / {
