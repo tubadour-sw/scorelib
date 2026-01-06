@@ -175,7 +175,8 @@ def protected_part_download(request, part_id):
     # Optional: Pruefen, ob der Musiker dieses Instrument spielen darf
     # (Nutzt die Methode aus unserem MusicianProfile Modell)
     if not request.user.is_staff: # Admins duerfen immer alles
-        if not request.user.profile.can_view_part(part.part_name):
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not profile.can_view_part(part.part_name):
             return HttpResponse("Zugriff verweigert: Diese Stimme gehört nicht zu deinem Instrumenten-Filter.", status=403)
 
     # Pfad zur Datei auf der Festplatte
@@ -377,7 +378,7 @@ def piece_detail(request, pk):
 
     if request.user.is_staff:
         user_parts = all_parts
-    elif user_profile and user_profile.instrument_filter:
+    elif user_profile and user_profile.instrument_groups.exists():
         for part in all_parts:
             if user_profile.can_view_part(part.part_name):
                 user_parts.append(part)
