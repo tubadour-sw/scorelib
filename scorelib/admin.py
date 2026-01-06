@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 
 # Deine Modelle und Tools
 from .models import (
-    Piece, Part, Composer, Arranger, Publisher, 
+    Piece, Part, Composer, Arranger, Publisher, InstrumentGroup,
     Genre, Venue, Concert, ProgramItem, AudioRecording, MusicianProfile
 )
 from .forms import PartSplitFormSet
@@ -265,10 +265,22 @@ class ConcertAdmin(admin.ModelAdmin):
  
     merge_concerts_action.short_description = "Ausgewählte Concerts zusammenführen"
 
+@admin.register(InstrumentGroup)
+class InstrumentGroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'filter_strings')
+    
+    
 @admin.register(MusicianProfile)
 class MusicianProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'instrument_filter')
-    search_fields = ('user__username', 'instrument_filter')
+    list_display = ('user', 'display_groups')
+    filter_horizontal = ('instrument_groups',) # Komfortable Auswahlbox
+    search_fields = ('user_username', 'display_groups')
+
+    def display_groups(self, obj):
+        return ", ".join([g.name for g in obj.instrument_groups.all()])
+        
+    display_groups.short_description = 'Instrumente'
+    
     
     def get_urls(self):
         urls = super().get_urls()
@@ -279,24 +291,20 @@ class MusicianProfileAdmin(admin.ModelAdmin):
 
     def unmatched_parts_view(self, request):
         all_parts = Part.objects.select_related('piece').all()
-        all_profiles = MusicianProfile.objects.all()
+        all_groups = InstrumentGroup.objects.all() # Wir holen Gruppen statt Profile
         
-        # Hol dir alle aktiven Filter-Muster zur Kontrolle
-        active_filters = []
-        for p in all_profiles:
-            active_filters.extend([f.strip().lower() for f in p.instrument_filter.split(',') if f.strip()])
-        active_filters = list(set(active_filters)) # Duplikate entfernen
-
         unmatched = []
         for part in all_parts:
-            if not any(profile.can_view_part(part.part_name) for profile in all_profiles):
+            # Wir prüfen nur noch gegen die definierten Instrumenten-Gruppen
+            is_covered = any(group.matches_part(part.part_name) for group in all_groups)
+            
+            if not is_covered:
                 unmatched.append(part)
 
         context = {
             **self.admin_site.each_context(request),
-            'title': 'Verwaiste Stimmen Analyse',
+            'title': 'Verwaiste Stimmen (Keiner Gruppe zugeordnet)',
             'unmatched_parts': unmatched,
-            'active_filters': active_filters, # Neu im Kontext
             'opts': self.model._meta,
         }
         return render(request, 'admin/unmatched_parts.html', context)

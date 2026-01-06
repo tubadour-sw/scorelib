@@ -46,7 +46,25 @@ class Publisher(models.Model):
     def __str__(self):
         return self.name
 
-# --- User Extension ---
+class InstrumentGroup(models.Model):
+    name = models.CharField(max_length=100, unique=True, help_text="z.B. Trompete")
+    filter_strings = models.CharField(
+        max_length=500, 
+        help_text="Komma-getrennte Liste (z.B. Trompete*, Flügelhorn*, Cornet*)"
+    )
+
+    def __str__(self):
+        return self.name
+        
+    def matches_part(self, part_name):
+        """Prüft, ob der Part-Name zu den Filtern dieser Gruppe passt."""
+        if not self.filter_strings:
+            return False
+        
+        part_name_lower = part_name.strip().lower()
+        filters = [f.strip().lower() for f in self.filter_strings.split(',') if f.strip()]
+        
+        return any(fnmatch.fnmatch(part_name_lower, f) for f in filters)
 
 class MusicianProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -54,14 +72,12 @@ class MusicianProfile(models.Model):
         max_length=255, 
         help_text="Comma-separated list of allowed instruments (e.g. 'Clarinet, Saxophone')"
     )
+    
+    instrument_groups = models.ManyToManyField(InstrumentGroup, blank=True)
 
     def can_view_part(self, part_name):
-        """Checks if the user's filter matches the part name."""
-        if not self.instrument_filter:
-            return False
-        filters = [f.strip().lower() for f in self.instrument_filter.split(',')]
-        part_name_lower = part_name.lower()
-        return any(fnmatch.fnmatch(part_name_lower, f) for f in filters)
+        """Prüft, ob irgendeine der zugeordneten Gruppen den Part matcht."""
+        return any(group.matches_part(part_name) for group in self.instrument_groups.all())
 
     def __str__(self):
         return f"Profile of {self.user.username}"
