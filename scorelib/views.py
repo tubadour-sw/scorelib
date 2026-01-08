@@ -10,10 +10,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, Http404
 from django.http import FileResponse
+from django.contrib.auth.models import User
+from django.utils.text import slugify
 
 # Importiere deine Modelle
-from .models import Piece, Part, Concert, Arranger, Composer, Publisher, Genre, MusicianProfile, AudioRecording
-from .forms import CSVPiecesImportForm
+from .models import Piece, Part, Concert, Arranger, Composer, Publisher, Genre, MusicianProfile, AudioRecording, InstrumentGroup
+from .forms import CSVPiecesImportForm, CSVUserImportForm
 
 @login_required
 def scorelib_index(request):
@@ -396,3 +398,91 @@ def piece_detail(request, pk):
     
 def legal_view(request):
     return render(request, 'scorelib/legal.html')
+    
+@login_required
+@transaction.atomic
+def import_musicians(request):
+    if not request.user.is_staff:
+        return redirect('scorelib_index')
+        
+    available_groups = InstrumentGroup.objects.all().order_by('name')
+
+    if request.method == "POST":
+        form = CSVUserImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            csv_file = request.FILES['csv_file']
+            is_dry_run = form.cleaned_data.get('dry_run')
+            
+            decoded_file = csv_file.read().decode('UTF-8').splitlines()
+            reader = csv.reader(decoded_file, delimiter=';')
+            
+            success_count = 0
+            error_count = 0
+            
+            # Wir erstellen einen "Savepoint", zu dem wir zurückkehren können
+            sid = transaction.savepoint()
+
+            for line_num, row in enumerate(reader, start=1):
+                if line_num == 1: continue # Header
+                
+                if len(row) < 3:
+                    messages.error(request, f"Zeile {line_num}: Zu wenig Spalten.")
+                    error_count += 1
+                    continue
+                
+                # Daten sauber extrahieren
+                first_name, last_name = row[0].strip(), row[1].strip()
+                groups_str = row[2].strip()
+                email = row[3].strip() if len(row) > 3 else ""
+
+                if not first_name or not last_name:
+                    messages.error(request, f"Zeile {line_num}: Name fehlt.")
+                    error_count += 1
+                    continue
+
+                try:
+                    username = slugify(f"{first_name} {last_name}")
+                    
+                    # User anlegen
+                    user, created = User.objects.get_or_create(
+                        username=username,
+                        defaults={'first_name': first_name, 'last_name': last_name, 'email': email}
+                    )
+                    if created:
+                        clean_last_name = last_name.replace(" ", "")
+                        user.set_password(f"SKG-{clean_last_name}")
+                        user.save()
+                    
+                    profile, _ = MusicianProfile.objects.get_or_create(user=user)
+                    
+                    # Instrumentengruppen prüfen
+                    if groups_str:
+                        group_names = [g.strip() for g in groups_str.split(',') if g.strip()]
+                        for g_name in group_names:
+                            try:
+                                group = InstrumentGroup.objects.get(name=g_name)
+                                profile.instrument_groups.add(group)
+                            except InstrumentGroup.DoesNotExist:
+                                messages.warning(request, f"Zeile {line_num}: Gruppe '{g_name}' fehlt im System.")
+                    
+                    success_count += 1
+                except Exception as e:
+                    messages.error(request, f"Fehler in Zeile {line_num}: {str(e)}")
+                    error_count += 1
+
+            if is_dry_run:
+                transaction.savepoint_rollback(sid)
+                messages.info(request, f"DRY RUN abgeschlossen: {success_count} Zeilen wären okay, {error_count} Fehler gefunden. Es wurde NICHTS gespeichert.")
+            else:
+                transaction.savepoint_commit(sid)
+                messages.success(request, f"Import ERFOLGREICH: {success_count} Musiker angelegt/aktualisiert.")
+
+            return redirect('admin:auth_user_changelist')
+    else:
+        form = CSVUserImportForm()
+    
+    return render(request, "admin/csv_user_import.html", {
+        "form": form, 
+        "title": "Musiker-Import",
+        "available_groups": available_groups
+        })

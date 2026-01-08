@@ -16,7 +16,7 @@ from .models import (
 )
 from .forms import PartSplitFormSet
 from .utils import process_pdf_split
-from .views import piece_csv_import
+from .views import piece_csv_import, import_musicians
 
 def get_generic_merge_response(admin_obj, request, queryset, title, action_name):
     """ Rendert das Bestätigungs-Template für alle Models """
@@ -318,8 +318,18 @@ class MusicianProfileInline(admin.StackedInline):
 class UserAdmin(BaseUserAdmin):
     inlines = (MusicianProfileInline, )
     
+    # Das Custom Template für den Import-Button registrieren
+    change_list_template = "admin/user_changelist_custom.html"
+    
     # Optional: Spalten in der Benutzerübersicht erweitern
     list_display = ('username', 'email', 'first_name', 'last_name', 'get_instruments', 'is_staff')
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('import-user-csv/', self.admin_site.admin_view(import_musicians), name="import_musicians"),
+        ]
+        return custom_urls + urls
     
     # Diese Methode sorgt dafür, dass Inlines beim ERSTELLEN 
     # (add_view) ignoriert werden, um den Signal-Konflikt zu vermeiden

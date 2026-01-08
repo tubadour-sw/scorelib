@@ -1,0 +1,52 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div id="content-main">
+    <!--<h1>{{ title }}</h1> -->
+    <p>Lade eine semikolon-getrennte CSV-Datei hoch. Format: <code>first_name;last_name;instrument_groups;email</code></p>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="aligned">
+            <div class="form-row">
+                {{ form.csv_file.errors }}
+                {{ form.csv_file.label_tag }} {{ form.csv_file }}
+            </div>
+            
+        </div>
+        <div class="form-row">
+            {{ form.dry_run.errors }}
+            <label style="color: #ba2121; font-weight: bold;">{{ form.dry_run.label }}:</label> 
+            {{ form.dry_run }}
+            <p class="help">Lasse dies aktiviert, um die Datei erst zu testen.</p>
+        </div>
+        <div class="submit-row">
+            <input type="submit" value="Import starten" class="default">
+            <a href="." class="button cancel-link">Abbrechen</a>
+        </div>
+    </form>
+
+    <div style="margin-top: 30px;">
+        <h3>Hinweise zum Format:</h3>
+        <ul>
+            <li>
+                <strong>Instrumenten-Gruppen:</strong> Mehrere Gruppen mit Komma trennen.
+                <div style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border: 1px solid #ccc; border-radius: 4px;">
+                    <strong style="display: block; margin-bottom: 5px; color: #444;">Verfügbare Gruppen im System:</strong>
+                    <div style="font-family: 'Courier New', monospace; font-size: 0.95em; line-height: 1.6;">
+                        {% for group in available_groups %}
+                            <span style="background: #fff; padding: 2px 5px; border: 1px solid #eee; margin-right: 5px; display: inline-block;">{{ group.name }}</span>
+                        {% empty %}
+                            <em style="color: #ba2121;">Bisher keine Gruppen angelegt!</em>
+                        {% endfor %}
+                    </div>
+                    <p style="margin-top: 8px; font-size: 0.85em; color: #666;">
+                        <em>Nur exakt diese Bezeichnungen verwenden. Unbekannte Gruppen werden ignoriert.</em>
+                    </p>
+                </div>
+            </li>
+            <li style="margin-top: 15px;"><strong>Passwort:</strong> Wird automatisch auf <code>SKG-Nachname</code> gesetzt (Leerzeichen im Nachnamen werden für das Passwort entfernt).</li>
+            <li><strong>Username:</strong> Wird automatisch aus dem Namen generiert (z.B. <code>max-mustermann</code>).</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

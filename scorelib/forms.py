@@ -16,3 +16,11 @@ PartSplitFormSet = forms.formset_factory(PartSplitEntryForm, extra=1)
 
 class CSVPiecesImportForm(forms.Form):
     csv_file = forms.FileField(label="CSV-Datei auswählen")
+
+class CSVUserImportForm(forms.Form):
+    csv_file = forms.FileField(label="CSV-Datei auswählen")
+    dry_run = forms.BooleanField(
+        required=False, 
+        initial=True, 
+        label="Dry Run (Nur Fehlerprüfung, keine Speicherung)"
+    )
