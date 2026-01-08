@@ -84,10 +84,17 @@ DATABASES = {
 
 # 5. AUTHENTICATION & LOGIN REDIRECTS
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
+    # Verhindert Passwörter, die dem Benutzernamen zu ähnlich sind
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    # Setzt eine Mindestlänge (hier auf 6 Zeichen reduziert)
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 6, 
+        }
+    },
 ]
 
 # Important for your Musician login:

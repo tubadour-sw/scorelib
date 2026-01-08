@@ -27,6 +27,7 @@
                 <li class="nav-item"><a class="nav-link" href="{% url 'scorelib_index' %}">Suche / Archiv</a></li>
 				<li class="nav-item"><a class="nav-link" href="{% url 'concert_list' %}">Konzerte</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'next_concert' %}">Nächstes Konzert</a></li>
+				<li class="nav-item"><a class="nav-link" href="{% url 'password_change' %}">Passwort &auml;ndern</a></li>
             </ul>
             <span class="navbar-text me-3 text-light">Hallo, {{ user.username }}</span>
             <form action="{% url 'logout' %}" method="post" class="d-inline">
