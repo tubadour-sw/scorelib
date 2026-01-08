@@ -397,6 +397,11 @@ class AudioRecordingAdmin(admin.ModelAdmin):
             form.base_fields['piece'].queryset = Piece.objects.none()
 
         return form
+        
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "concert": # Name des Feldes in AudioRecording
+            kwargs["queryset"] = Concert.objects.order_by('title')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     class Media:
         js = ('admin/js/jquery.init.js', 'js/audio_recording_helper.js')
