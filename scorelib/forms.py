@@ -1,5 +1,6 @@
 from django import forms
 from .models import Composer, Arranger, Concert
+from django.contrib.auth.models import User
 
 class PartSplitEntryForm(forms.Form):
     part_name = forms.CharField(
@@ -24,3 +25,18 @@ class CSVUserImportForm(forms.Form):
         initial=True, 
         label="Dry Run (Nur Fehlerprüfung, keine Speicherung)"
     )
+
+class UserProfileUpdateForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['username', 'email']
+        help_texts = {
+            'username': 'Dein Anmeldename. Er darf nur Buchstaben, Zahlen und @/./+/-/_ enthalten.',
+        }
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if User.objects.exclude(pk=self.instance.pk).filter(username=username).exists():
+            raise forms.ValidationError("Dieser Benutzername ist leider schon vergeben.")
+        return username
+        

@@ -1,0 +1,71 @@
+{% extends "scorelib/base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Mein Profil</h2>
+    <div class="row">
+        <div class="col-md-5 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white">Persönliche Daten</div>
+                <div class="card-body">
+                    <p class="mb-1 text-muted small">Name</p>
+                    <h5 class="mb-3">{{ request.user.first_name }} {{ request.user.last_name }}</h5>
+                    
+                    <p class="mb-1 text-muted small">Du siehst Noten for folgende Instrumente</p>
+                    <div>
+                        {% for group in user_profile.instrument_groups.all %}
+                            <span class="badge bg-success fs-6 mb-1">{{ group.name }}</span>
+                        {% empty %}
+                            <span class="text-danger">Keine Instrumentengruppe zugewiesen</span>
+                        {% endfor %}
+                    </div>
+                    <hr>
+                    <p class="small text-muted">
+                        <i class="bi bi-info-circle"></i> Namensänderungen oder neue Instrumente können nur durch den Notenwart angepasst werden.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">Einstellungen</div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                        <div class="mb-3">
+                            {{ form.username.label_tag }}
+                            {{ form.username }}
+                            {% if form.username.errors %}
+                                <div class="text-danger small">
+                                    {{ form.username.errors }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Dein Login-Name für diese Seite.</div>
+                        </div>
+                        <div class="mb-3">
+                            {{ form.email.label_tag }}
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small">
+                                    {{ form.email.errors }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Optional für spätere Benachrichtigungen.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Änderungen speichern</button>
+                    </form>
+                    <hr>
+                    <h5>Sicherheit</h5>
+                    <p>Möchtest du dein Passwort ändern?</p>
+                    <a href="{% url 'password_change' %}" class="btn btn-outline-warning">Passwort jetzt ändern</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

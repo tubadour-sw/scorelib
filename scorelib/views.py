@@ -15,7 +15,7 @@ from django.utils.text import slugify
 
 # Importiere deine Modelle
 from .models import Piece, Part, Concert, Arranger, Composer, Publisher, Genre, MusicianProfile, AudioRecording, InstrumentGroup
-from .forms import CSVPiecesImportForm, CSVUserImportForm
+from .forms import CSVPiecesImportForm, CSVUserImportForm, UserProfileUpdateForm
 
 @login_required
 def scorelib_index(request):
@@ -486,3 +486,22 @@ def import_musicians(request):
         "title": "Musiker-Import",
         "available_groups": available_groups
         })
+
+@login_required
+def profile_view(request):
+    user_profile = getattr(request.user, 'profile', None)
+    
+    if request.method == 'POST':
+        form = UserProfileUpdateForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profil erfolgreich aktualisiert!")
+            return redirect('profile_view')
+    else:
+        form = UserProfileUpdateForm(instance=request.user)
+    
+    context = {
+        'form': form,
+        'user_profile': user_profile,
+    }
+    return render(request, 'registration/profile.html', context)

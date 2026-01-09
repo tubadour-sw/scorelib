@@ -16,4 +16,5 @@ urlpatterns = [
     path('download/audio/<int:audio_id>/', views.protected_audio_download, name='protected_audio_download'),
     path('piece/<int:pk>/', views.piece_detail, name='scorelib_piece_detail'),
     path('legal/', views.legal_view, name='legal'),
+    path('profile/', views.profile_view, name='profile_view'),
 ]
