@@ -10,7 +10,7 @@
                     <p class="mb-1 text-muted small">Name</p>
                     <h5 class="mb-3">{{ request.user.first_name }} {{ request.user.last_name }}</h5>
                     
-                    <p class="mb-1 text-muted small">Du siehst Noten for folgende Instrumente:</p>
+                    <p class="mb-1 text-muted small">Du siehst Noten für folgende Instrumente:</p>
                     <div>
                         {% for group in user_profile.instrument_groups.all %}
                             <span class="badge bg-success fs-6 mb-1">{{ group.name }}</span>
