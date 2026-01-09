@@ -108,7 +108,22 @@ def concert_detail_view(request, concert_id=None):
         # Ein ganz bestimmtes Konzert laden
         next_concert = get_object_or_404(Concert, pk=concert_id)
     else:
-        next_concert = Concert.objects.filter(date__isnull=False, date__gte=timezone.now()).order_by('date').first()
+        # 1. Versuch: Das zeitlich nächste Konzert finden
+        next_concert = Concert.objects.filter(
+            date__isnull=False, 
+            date__gte=timezone.now()
+        ).order_by('date').first()
+        
+        # 2. Fallback: Wenn kein zukünftiges Konzert existiert, nimm das letzte/aktuellste
+        if not next_concert:
+            next_concert = Concert.objects.filter(
+                date__isnull=False
+            ).order_by('-date').first()
+            
+    # Falls die Datenbank komplett leer ist (gar kein Konzert), 
+    # sollten wir den Rest der View überspringen oder eine Meldung zeigen
+    if not next_concert:
+        return render(request, 'scorelib/concert_detail.html', {'concert': None})
         
     context = {'concert': next_concert}
     
