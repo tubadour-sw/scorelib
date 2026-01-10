@@ -414,85 +414,148 @@ def piece_detail(request, pk):
 def legal_view(request):
     return render(request, 'scorelib/legal.html')
     
+import csv
+from django.db import transaction
+from django.utils.text import slugify
+from django.contrib.auth.models import User
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from .models import InstrumentGroup, MusicianProfile
+from .forms import CSVUserImportForm
+
 @login_required
 @transaction.atomic
 def import_musicians(request):
     if not request.user.is_staff:
         return redirect('scorelib_index')
-        
-    available_groups = InstrumentGroup.objects.all().order_by('name')
 
+    available_groups = InstrumentGroup.objects.all().order_by('name')
+    # Erstelle ein Set für schnellen Abgleich der Gruppennamen
+    group_names_set = {g.name.lower(): g for g in available_groups}
+        
     if request.method == "POST":
         form = CSVUserImportForm(request.POST, request.FILES)
         if form.is_valid():
             csv_file = request.FILES['csv_file']
             is_dry_run = form.cleaned_data.get('dry_run')
             
-            decoded_file = csv_file.read().decode('UTF-8').splitlines()
-            reader = csv.reader(decoded_file, delimiter=';')
+            try:
+                decoded_file = csv_file.read().decode('utf-8-sig').splitlines()
+                reader = csv.reader(decoded_file, delimiter=';')
+            except Exception as e:
+                messages.error(request, f"Datei konnte nicht gelesen werden: {e}")
+                return redirect('import_musicians')
+
+            import_results = []
             
-            success_count = 0
-            error_count = 0
-            
-            # Wir erstellen einen "Savepoint", zu dem wir zurückkehren können
+            # Start einer globalen Transaktion
             sid = transaction.savepoint()
-
-            for line_num, row in enumerate(reader, start=1):
-                if line_num == 1: continue # Header
+            
+            try:
+                # Header überspringen
+                header = next(reader, None) 
                 
-                if len(row) < 3:
-                    messages.error(request, f"Zeile {line_num}: Zu wenig Spalten.")
-                    error_count += 1
-                    continue
-                
-                # Daten sauber extrahieren
-                first_name, last_name = row[0].strip(), row[1].strip()
-                groups_str = row[2].strip()
-                email = row[3].strip() if len(row) > 3 else ""
+                for line_num, row in enumerate(reader, start=2):
+                    # Grundlegende Prüfung der Spaltenanzahl
+                    if len(row) < 3:
+                        import_results.append({
+                            'line': line_num, 'name': "Unvollständig", 
+                            'status': "Fehler: Mind. Vorname, Nachname, Instrumente nötig", 'type': 'danger'
+                        })
+                        continue
 
-                if not first_name or not last_name:
-                    messages.error(request, f"Zeile {line_num}: Name fehlt.")
-                    error_count += 1
-                    continue
-
-                try:
+                    first_name = row[0].strip()
+                    last_name = row[1].strip()
+                    groups_raw = row[2].strip()
+                    groups_final = ""
+                    email = row[3].strip() if len(row) > 3 else ""
+                    
+                    # Generiere Userdaten
                     username = slugify(f"{first_name} {last_name}")
+                    # Passwort: Leerzeichen im Nachnamen entfernen
+                    raw_password = f"SKG-{last_name.replace(' ', '')}"
                     
-                    # User anlegen
-                    user, created = User.objects.get_or_create(
-                        username=username,
-                        defaults={'first_name': first_name, 'last_name': last_name, 'email': email}
-                    )
-                    if created:
-                        clean_last_name = last_name.replace(" ", "")
-                        user.set_password(f"SKG-{clean_last_name}")
-                        user.save()
+                    # Innerer Savepoint für diese Zeile
+                    row_sid = transaction.savepoint()
                     
-                    profile, _ = MusicianProfile.objects.get_or_create(user=user)
-                    
-                    # Instrumentengruppen prüfen
-                    if groups_str:
-                        group_names = [g.strip() for g in groups_str.split(',') if g.strip()]
-                        for g_name in group_names:
-                            try:
-                                group = InstrumentGroup.objects.get(name=g_name)
-                                profile.instrument_groups.add(group)
-                            except InstrumentGroup.DoesNotExist:
-                                messages.warning(request, f"Zeile {line_num}: Gruppe '{g_name}' fehlt im System.")
-                    
-                    success_count += 1
-                except Exception as e:
-                    messages.error(request, f"Fehler in Zeile {line_num}: {str(e)}")
-                    error_count += 1
+                    try:
+                        user, created = User.objects.get_or_create(
+                            username=username,
+                            defaults={
+                                'first_name': first_name,
+                                'last_name': last_name,
+                                'email': email
+                            }
+                        )
+                        
+                        if created:
+                            user.set_password(raw_password)
+                            user.save()
+                            status_text = "Neu angelegt"
+                            row_type = "success"
+                        else:
+                            status_text = "Bereits vorhanden (aktualisiert)"
+                            raw_password = "(unverändert)"
+                            row_type = "warning"
 
-            if is_dry_run:
+                        # Profil & Instrumentengruppen
+                        profile, _ = MusicianProfile.objects.get_or_create(user=user)
+                        
+                        # Gruppen verarbeiten
+                        target_groups = [g.strip() for g in groups_raw.split(',') if g.strip()]
+                        valid_groups = []
+                        unknown_groups = []
+                        
+                        for g_name in target_groups:
+                            if g_name.lower() in group_names_set:
+                                valid_groups.append(group_names_set[g_name.lower()])                                
+                            else:
+                                unknown_groups.append(g_name)
+                        
+                        if valid_groups:
+                            profile.instrument_groups.set(valid_groups)
+                            groups_final = ", ".join(g.name for g in valid_groups)
+                        
+                        if unknown_groups:
+                            status_text += f" | Unbekannte Gruppen: {', '.join(unknown_groups)}"
+                            row_type = "warning"
+
+                        transaction.savepoint_commit(row_sid)
+                        
+                        
+                    except Exception as e:
+                        transaction.savepoint_rollback(row_sid)
+                        status_text = f"Kritischer Fehler: {str(e)}"
+                        row_type = "danger"
+                        raw_password = "-"
+
+                    import_results.append({
+                        'line': line_num,
+                        'name': f"{first_name} {last_name}",
+                        'email': email,
+                        'username': username,
+                        'password': raw_password,
+                        'instrument_groups': groups_final,
+                        'status': status_text,
+                        'type': row_type
+                    })
+
+                # Abschluss der Transaktion
+                if is_dry_run:
+                    transaction.savepoint_rollback(sid)
+                else:
+                    transaction.savepoint_commit(sid)
+
+                return render(request, "admin/csv_user_import_results.html", {
+                    "results": import_results,
+                    "is_dry_run": is_dry_run,
+                    "title": "Import Ergebnis"
+                })
+
+            except Exception as e:
                 transaction.savepoint_rollback(sid)
-                messages.info(request, f"DRY RUN abgeschlossen: {success_count} Zeilen wären okay, {error_count} Fehler gefunden. Es wurde NICHTS gespeichert.")
-            else:
-                transaction.savepoint_commit(sid)
-                messages.success(request, f"Import ERFOLGREICH: {success_count} Musiker angelegt/aktualisiert.")
-
-            return redirect('admin:auth_user_changelist')
+                messages.error(request, f"Allgemeiner Fehler beim Import: {e}")
+                return redirect('import_musicians')
     else:
         form = CSVUserImportForm()
     
@@ -500,7 +563,37 @@ def import_musicians(request):
         "form": form, 
         "title": "Musiker-Import",
         "available_groups": available_groups
-        })
+    })
+
+
+@login_required
+def export_import_results_csv(request):
+    if not request.user.is_staff:
+        return redirect('scorelib_index')
+
+    # Wir holen die Daten aus dem POST-Request (versteckte Felder im Formular)
+    # oder alternativ: wir generieren sie aus den soeben verarbeiteten Daten.
+    # Da wir sie direkt nach dem Import brauchen, ist ein Download-Button 
+    # auf der Ergebnisseite am sinnvollsten.
+    
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="musiker_zugangsdaten.csv"'
+    
+    writer = csv.writer(response, delimiter=';')
+    writer.writerow(['name', 'email', 'username', 'initial-password', 'instrument_groups', 'status'])
+
+    # Die Daten werden per POST vom Ergebnis-Template gesendet
+    names = request.POST.getlist('name[]')
+    emails = request.POST.getlist('email[]')
+    usernames = request.POST.getlist('username[]')
+    passwords = request.POST.getlist('password[]')
+    instrument_groups = request.POST.getlist('instrument_groups[]')
+    statuses = request.POST.getlist('status[]')
+
+    for n, e, u, p, i, s in zip(names, emails, usernames, passwords, instrument_groups, statuses):
+        writer.writerow([n, e, u, p, i, s])
+
+    return response
 
 @login_required
 def profile_view(request):

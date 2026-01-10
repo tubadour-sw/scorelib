@@ -1,0 +1,68 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .res-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    .res-table th { background: #79aec8; color: white; padding: 10px; text-align: left; }
+    .res-table td { padding: 8px 10px; border-bottom: 1px solid #ddd; }
+    .row-success { background-color: #d4edda !important; }
+    .row-warning { background-color: #fff3cd !important; }
+    .row-danger { background-color: #f8d7da !important; }
+    .badge { padding: 2px 6px; border-radius: 4px; font-size: 0.8em; font-weight: bold; text-transform: uppercase; }
+    .badge-new { background: #28a745; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{{ title }} {% if is_dry_run %}<span style="color: red;">(PROBELAUF)</span>{% endif %}</h1>
+    
+    <p>Hier sind die Ergebnisse des CSV-Imports. Umlaute wurden im Benutzernamen automatisch umgewandelt.</p>
+
+    <form method="post" action="{% url 'export_musicians_results' %}">
+        {% csrf_token %}
+        <table class="res-table">
+            <thead>
+                <tr>
+                    <th>Zeile</th>
+                    <th>Name</th>
+					<th>E-Mail</td>
+                    <th>Username</th>
+                    <th>Passwort</th>
+                    <th>Instrumente</th>
+                    <th>Status / Fehlerhinweise</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in results %}
+                <tr class="row-{{ res.type }}">
+                    <td>{{ res.line }}
+						<input type="hidden" name="name[]" value="{{ res.name }}">
+						<input type="hidden" name="email[]" value="{{ res.email }}">
+						<input type="hidden" name="username[]" value="{{ res.username }}">
+						<input type="hidden" name="password[]" value="{{ res.password }}">
+						<input type="hidden" name="instrument_groups[]" value="{{ res.instrument_groups }}">
+						<input type="hidden" name="status[]" value="{{ res.status }}">
+					</td>
+                    <td><strong>{{ res.name }}</strong></td>
+					<td>{{ res.email }}</td>
+                    <td><code>{{ res.username }}</code></td>
+                    <td><code style="background: rgba(0,0,0,0.05);">{{ res.password }}</code></td>
+                    <td>{{ res.instrument_groups }}</td>
+                    <td>{{ res.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="submit-row">
+            <button type="submit" class="button" style="background: #417690; color: white;">
+                <i class="bi bi-download"></i> Diese Liste als CSV herunterladen
+            </button>
+            <a href="{% url 'admin:auth_user_changelist' %}" class="button default">Zurück zur Benutzerliste</a>
+            <a href="." class="button">Weiteren Import durchführen</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

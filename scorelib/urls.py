@@ -19,4 +19,5 @@ urlpatterns = [
     path('piece/<int:pk>/', views.piece_detail, name='scorelib_piece_detail'),
     path('legal/', views.legal_view, name='legal'),
     path('profile/', views.profile_view, name='profile_view'),
+    path('import-csv-user/export/', views.export_import_results_csv, name='export_musicians_results'),
 ]
