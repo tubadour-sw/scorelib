@@ -322,7 +322,8 @@ class UserAdmin(BaseUserAdmin):
     change_list_template = "admin/user_changelist_custom.html"
     
     # Optional: Spalten in der Benutzerübersicht erweitern
-    list_display = ('username', 'email', 'first_name', 'last_name', 'get_instruments', 'is_staff')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'get_instruments', 'is_staff', 'is_active',)
+    list_editable = ('is_active',)
     
     def get_urls(self):
         urls = super().get_urls()
