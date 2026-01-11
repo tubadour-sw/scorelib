@@ -1,4 +1,4 @@
-{% extends "scorelib/base.html" %} {% block content %}
+﻿{% extends "scorelib/base.html" %} {% block content %}
 <div class="container mt-4">
     {% if concert %}
         <div class="row">
@@ -22,6 +22,7 @@
                                 <h5 class="mb-1">{{ forloop.counter }}. 
                                     <a href="{% url 'scorelib_piece_detail' item.piece.id %}" class="text-decoration-none fw-bold">
                                         {{ item.piece.title }}
+										{% if item.piece.audiorecording_set.all %} ▶️ {% endif %}
                                     </a>
                                 </h5>
                                 <small class="text-muted"><strong>{{ item.piece.archive_label }}</strong></small>
@@ -53,7 +54,7 @@
                             {% if item.recordings %}
                                 <div class="mt-3">
                                     <small class="text-muted">Audio-Referenz:</small>
-                                    {% for rec in item.piece.audiorecording_set.all %}
+                                    {% for rec in item.recordings %}
                                         {% if rec.id %}  
                                             <div class="mb-2">
                                                 <span class="small">{{ rec.description }}</span>
