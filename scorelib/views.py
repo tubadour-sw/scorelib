@@ -13,6 +13,7 @@ from django.http import FileResponse
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 
+
 # Importiere deine Modelle
 from .models import Piece, Part, Concert, Arranger, Composer, Publisher, Genre, MusicianProfile, AudioRecording, InstrumentGroup
 from .forms import CSVPiecesImportForm, CSVUserImportForm, UserProfileUpdateForm
@@ -414,14 +415,6 @@ def piece_detail(request, pk):
 def legal_view(request):
     return render(request, 'scorelib/legal.html')
     
-import csv
-from django.db import transaction
-from django.utils.text import slugify
-from django.contrib.auth.models import User
-from django.contrib import messages
-from django.shortcuts import render, redirect
-from .models import InstrumentGroup, MusicianProfile
-from .forms import CSVUserImportForm
 
 @login_required
 @transaction.atomic
@@ -440,8 +433,9 @@ def import_musicians(request):
             is_dry_run = form.cleaned_data.get('dry_run')
             
             try:
-                decoded_file = csv_file.read().decode('utf-8-sig').splitlines()
-                reader = csv.reader(decoded_file, delimiter=';')
+                data_set = csv_file.read().decode('utf-8-sig')
+                io_string = io.StringIO(data_set)
+                reader = csv.DictReader(io_string, delimiter=';')
             except Exception as e:
                 messages.error(request, f"Datei konnte nicht gelesen werden: {e}")
                 return redirect('import_musicians')
@@ -452,23 +446,21 @@ def import_musicians(request):
             sid = transaction.savepoint()
             
             try:
-                # Header überspringen
-                header = next(reader, None) 
-                
                 for line_num, row in enumerate(reader, start=2):
-                    # Grundlegende Prüfung der Spaltenanzahl
-                    if len(row) < 3:
+                    try:
+                        first_name = row.get("FirstName").strip()
+                        last_name = row.get("LastName").strip()
+                        groups_raw = row.get("Instruments").strip()
+                    except:
                         import_results.append({
                             'line': line_num, 'name': "Unvollständig", 
-                            'status': "Fehler: Mind. Vorname, Nachname, Instrumente nötig", 'type': 'danger'
+                            'status': "Fehler: Mind. 'FirstName', 'LastName', 'Instruments' nötig", 'type': 'danger'
                         })
                         continue
-
-                    first_name = row[0].strip()
-                    last_name = row[1].strip()
-                    groups_raw = row[2].strip()
+                        
                     groups_final = ""
-                    email = row[3].strip() if len(row) > 3 else ""
+                    email_raw = row.get("Email")
+                    email = email_raw.strip() if email_raw else ""
                     
                     # Generiere Userdaten
                     username = slugify(f"{first_name} {last_name}")
@@ -589,7 +581,7 @@ def export_import_results_csv(request):
     response['Content-Disposition'] = 'attachment; filename="musiker_zugangsdaten.csv"'
     
     writer = csv.writer(response, delimiter=';')
-    writer.writerow(['name', 'email', 'username', 'initial-password', 'instrument_groups', 'status'])
+    writer.writerow(['Name', 'Email', 'Username', 'InitialPassword', 'InstrumentGroups', 'Status'])
 
     # Die Daten werden per POST vom Ergebnis-Template gesendet
     names = request.POST.getlist('name[]')
