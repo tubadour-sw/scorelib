@@ -104,7 +104,12 @@ class Piece(models.Model):
     )
 
     def __str__(self):
-        return f"{self.title} ({self.composer.name})"
+        artists = []
+        if self.composer:
+            artists.append(f"{self.composer.name}")
+        if self.arranger:
+            artists.append(f"Arr. {self.arranger.name}")
+        return f"{self.title} ({', '.join(artists)})"
 
 class Part(models.Model):
     piece = models.ForeignKey(Piece, on_delete=models.CASCADE, related_name='parts')
