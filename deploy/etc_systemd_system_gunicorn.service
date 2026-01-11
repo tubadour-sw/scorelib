@@ -9,6 +9,7 @@ WorkingDirectory=/home/pi/skg-notenbank
 ExecStart=/home/pi/skg-notenbank/venv/bin/gunicorn \
       --access-logfile - \
       --workers 3 \
+      --timeout 300 \
       --bind unix:/home/pi/skg-notenbank/gunicorn.sock \
       skg_notenbank.wsgi:application
 
