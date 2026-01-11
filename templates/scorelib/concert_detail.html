@@ -27,7 +27,8 @@
                                 <small class="text-muted"><strong>{{ item.piece.archive_label }}</strong></small>
                             </div>
                             <div class="d-flex w-100 justify-content-between">
-                                <p class="mb-2 text-secondary">{{ item.piece.composer.name }}</p>
+                                <p class="mb-2 text-secondary">{{ item.piece.composer.name }} 
+								{% if item.piece.arranger %}(Arr. {{ item.piece.arranger.name }}){% endif %}</p>
                                 <small class="text-muted"><em>
                                     {% if item.piece.duration %}
                                         {{ item.piece.duration }}
