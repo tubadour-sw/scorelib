@@ -105,9 +105,9 @@ class Piece(models.Model):
 
     def __str__(self):
         artists = []
-        if self.composer:
+        if self.composer and self.composer.name:
             artists.append(f"{self.composer.name}")
-        if self.arranger:
+        if self.arranger and self.arranger.name:
             artists.append(f"Arr. {self.arranger.name}")
         return f"{self.title} ({', '.join(artists)})"
 
