@@ -475,6 +475,25 @@ def import_musicians(request):
                     # Passwort: Leerzeichen im Nachnamen entfernen
                     raw_password = f"SKG-{last_name.replace(' ', '')}"
                     
+                    # Gruppen verarbeiten
+                    target_groups = [g.strip() for g in groups_raw.split(',') if g.strip()]
+                    valid_groups = []
+                    unknown_groups = []
+                    
+                    for g_name in target_groups:
+                        if g_name.lower() in group_names_set:
+                            valid_groups.append(group_names_set[g_name.lower()])                                
+                        else:
+                            found = False
+                            for group_obj in available_groups:
+                                if group_obj.matches_part(g_name):
+                                    valid_groups.append(group_obj)
+                                    found = True
+                                    break # Ersten Treffer nehmen
+                            
+                            if not found:
+                                unknown_groups.append(g_name)
+                    
                     # Innerer Savepoint für diese Zeile
                     row_sid = transaction.savepoint()
                     
@@ -501,16 +520,6 @@ def import_musicians(request):
                         # Profil & Instrumentengruppen
                         profile, _ = MusicianProfile.objects.get_or_create(user=user)
                         
-                        # Gruppen verarbeiten
-                        target_groups = [g.strip() for g in groups_raw.split(',') if g.strip()]
-                        valid_groups = []
-                        unknown_groups = []
-                        
-                        for g_name in target_groups:
-                            if g_name.lower() in group_names_set:
-                                valid_groups.append(group_names_set[g_name.lower()])                                
-                            else:
-                                unknown_groups.append(g_name)
                         
                         if valid_groups:
                             profile.instrument_groups.set(valid_groups)

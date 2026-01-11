@@ -16,7 +16,7 @@
 
 {% block content %}
 <div id="content-main">
-    <h1>{{ title }} {% if is_dry_run %}<span style="color: red;">(PROBELAUF)</span>{% endif %}</h1>
+    {% if is_dry_run %}<h1><span style="color: red;">(PROBELAUF)</span></h1>{% endif %}
     
     <p>Hier sind die Ergebnisse des CSV-Imports. Umlaute wurden im Benutzernamen automatisch umgewandelt.</p>
 
