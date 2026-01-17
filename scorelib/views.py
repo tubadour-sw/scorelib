@@ -167,7 +167,7 @@ def concert_detail_view(request, concert_id=None):
             
             # 3. Filtern der Stimmen basierend auf dem Instrumenten-Filter des Nutzers
             user_parts = []
-            if profile:
+            if profile and (profile.has_full_archive_access or piece.is_active_for_download()):
                 all_parts = piece.parts.all()
                 user_parts = [p for p in all_parts if profile.can_view_part(p.part_name)]
             
@@ -181,6 +181,7 @@ def concert_detail_view(request, concert_id=None):
 
     return render(request, 'scorelib/concert_detail.html', context)
 
+@login_required
 def concert_list_view(request):
     # Alle Konzerte nach Datum sortiert (neueste oben)
     concerts = Concert.objects.all().order_by('title')
@@ -190,12 +191,18 @@ def concert_list_view(request):
 def protected_part_download(request, part_id):
     part = get_object_or_404(Part, pk=part_id)
     
-    # Optional: Pruefen, ob der Musiker dieses Instrument spielen darf
-    # (Nutzt die Methode aus unserem MusicianProfile Modell)
-    if not request.user.is_staff: # Admins duerfen immer alles
+    if not request.user.is_staff: 
         profile = getattr(request.user, 'profile', None)
-        if not profile or not profile.can_view_part(part.part_name):
-            return HttpResponse("Zugriff verweigert: Diese Stimme gehört nicht zu deinem Instrumenten-Filter.", status=403)
+        piece = part.piece
+        if not profile:
+            return HttpResponse("Zugriff verweigert: Du hast keinen Zugriff auf Noten.", status=403)
+            
+        if not profile.has_full_archive_access:
+            if not piece.is_active_for_download():
+                return HttpResponse("Zugriff verweigert: Noten für dieses Stück stehen momentan nicht zur Verfügung.", status=403)
+
+            if not profile.can_view_part(part.part_name):
+                return HttpResponse("Zugriff verweigert: Diese Stimme gehört nicht zu deinem Instrumenten-Filter.", status=403)
 
     # Pfad zur Datei auf der Festplatte
     file_path = part.pdf_file.path
@@ -394,9 +401,9 @@ def piece_detail(request, pk):
     
     user_parts = []
 
-    if request.user.is_staff:
+    if request.user.is_staff or (user_profile and user_profile.has_full_archive_access):
         user_parts = all_parts
-    elif user_profile and user_profile.instrument_groups.exists():
+    elif user_profile and user_profile.instrument_groups.exists() and piece.is_active_for_download():
         for part in all_parts:
             if user_profile.can_view_part(part.part_name):
                 user_parts.append(part)

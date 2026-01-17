@@ -298,7 +298,8 @@ class InstrumentGroupAdmin(admin.ModelAdmin):
     
 @admin.register(MusicianProfile)
 class MusicianProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'display_groups')
+    list_display = ('user', 'display_groups', 'has_full_archive_access')
+    list_editable = ('has_full_archive_access',)
     filter_horizontal = ('instrument_groups',) # Komfortable Auswahlbox
     search_fields = ('user_username', 'display_groups')
 

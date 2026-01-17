@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+from datetime import timedelta
 import fnmatch
 
 # --- Core Data (Stammdaten) ---
@@ -69,11 +71,15 @@ class InstrumentGroup(models.Model):
 class MusicianProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     instrument_groups = models.ManyToManyField(InstrumentGroup, blank=True)
+    has_full_archive_access = models.BooleanField(
+        default=False, 
+        verbose_name="Vollzugriff auf Archiv"
+    )
 
     def can_view_part(self, part_name):
         """Prüft, ob irgendeine der zugeordneten Gruppen den Part matcht."""
         return any(group.matches_part(part_name) for group in self.instrument_groups.all())
-
+        
     def __str__(self):
         return f"Profile of {self.user.username}"
 
@@ -102,6 +108,18 @@ class Piece(models.Model):
         null=True, 
         verbose_name="Schwierigkeit"
     )
+    
+    def is_active_for_download(self):
+        """
+        Prüft, ob das Stück für normale Musiker zum Download verfügbar sein soll.
+        Ein Stück ist aktiv, wenn es mit einem Konzert verknüpft ist, 
+        das in der Zukunft liegt oder vor weniger als 14 Tagen stattfand.
+        """
+        grace_period = 14 # in days
+        deadline = timezone.now().date() - timedelta(days=grace_period)
+        
+        # Prüfe, ob es ein verknüpftes Konzert gibt, das nach dem Stichtag liegt
+        return self.concerts.filter(date__gte=deadline).exists()
 
     def __str__(self):
         artists = []
