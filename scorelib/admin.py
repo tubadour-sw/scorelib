@@ -6,6 +6,7 @@ from django.utils.html import format_html
 from django.http import HttpResponseRedirect
 from django import forms
 from django.db import models
+from django.forms import Textarea
 
 # Authentifizierung
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -37,15 +38,24 @@ def get_generic_merge_response(admin_obj, request, queryset, title, action_name)
 # This allows adding Parts directly while editing a Piece
 class LoanRecordInline(admin.TabularInline):
     model = LoanRecord
-    extra = 1
+    extra = 0
     classes = ['collapse'] # Macht die gesamte Historie einklappbar
     verbose_name = "Verleih-Historie"
     fields = ('partner_name', 'loan_date', 'return_date', 'notes')
+    formfield_overrides = {
+        models.TextField: {
+            'widget': Textarea(attrs={
+                'rows': 1, 
+                'cols': 30, 
+                'style': 'height: 2em; min-height: 2em; transition: height 0.2s;'
+            })
+        },
+    }
     
 
 class PartInline(admin.TabularInline):
     model = Part
-    extra = 1  # Auf 0 setzen, damit nicht unnötig leere Zeilen erscheinen
+    extra = 0  # Auf 0 setzen, damit nicht unnötig leere Zeilen erscheinen
     fields = ('part_name', 'pdf_file', 'view_pdf_link')
     readonly_fields = ('view_pdf_link',)
 
@@ -175,7 +185,7 @@ class PieceAdmin(admin.ModelAdmin):
     # Optional: Ermöglicht das schnelle Editieren des Labels direkt in der Liste
     list_editable = ('archive_label',) 
     
-    search_fields = ('title', 'archive_label', 'composer__name', 'arranger__name')
+    search_fields = ('title', 'archive_label', 'composer__name', 'arranger__name', 'additional_info')
     ordering = ('title',)
 
     # 2. Registrierung der speziellen Split-URL
