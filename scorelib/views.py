@@ -20,7 +20,7 @@ from .forms import CSVPiecesImportForm, CSVUserImportForm, UserProfileUpdateForm
 
 @login_required
 def scorelib_index(request):
-    # Wir laden die recordings direkt mit, um Datenbankanfragen in der Schleife zu vermeiden
+    # Load recordings directly to avoid database queries in loops
     pieces = Piece.objects.select_related(
         'composer', 
         'arranger', 
@@ -32,7 +32,7 @@ def scorelib_index(request):
     )
     
     
-    # Filterwerte aus der URL (GET) holen
+    # Get filter values from URL (GET request)
     f_search = request.GET.get('search')
     f_genre = request.GET.get('genre')
     f_diff = request.GET.get('difficulty')
@@ -55,10 +55,10 @@ def scorelib_index(request):
     if f_pub:
         pieces = pieces.filter(publisher__id=f_pub)
     if f_con:
-        # Hier filtern wir über die Setliste (ProgramItems) des gewählten Konzerts
+        # Here we filter via the program (ProgramItems) of the selected concert
         pieces = pieces.filter(programitem__concert_id=f_con)
 
-    # Dubletten verhindern (wegen ManyToMany Genres)
+    # Prevent duplicates (due to ManyToMany Genres)
     pieces = pieces.distinct()
     
     context = {
@@ -73,20 +73,20 @@ def scorelib_index(request):
     return render(request, 'scorelib/index.html', context)
 
 def scorelib_search(request):
-    """Gibt Suchergebnisse als JSON zurueck."""
+    """Returns search results as JSON."""
     query = request.GET.get('q', '')
-    # Suche in Titel, Komponist oder Archiv-Nummer
+    # Search in title, composer, or archive number
     pieces = Piece.objects.filter(
         Q(title__icontains=query) | 
         Q(additional_info__icontains=query) |
         Q(composer__name__icontains=query) |
         Q(arranger__name__icontains=query) |
         Q(archive_label__icontains=query)
-    ).distinct()[:20] # Limitiert auf 20 Ergebnisse fuer Speed
+    ).distinct()[:20] # Limited to 20 results for speed
 
     results = []
     for piece in pieces:
-        # Wir holen alle Stimmen (Parts) fuer dieses Stueck
+        # Get all parts for this piece
         parts = []
         for part in piece.parts.all():
             parts.append({
@@ -108,42 +108,42 @@ def scorelib_search(request):
 @login_required
 def concert_detail_view(request, concert_id=None):
     if concert_id:
-        # Ein ganz bestimmtes Konzert laden
+        # Load a specific concert
         next_concert = get_object_or_404(Concert, pk=concert_id)
     else:
-        # 1. Versuch: Das zeitlich nächste Konzert finden
+        # 1. Try: Find the next concert chronologically
         next_concert = Concert.objects.filter(
             date__isnull=False, 
             date__gte=timezone.now()
         ).order_by('date').first()
         
-        # 2. Fallback: Wenn kein zukünftiges Konzert existiert, nimm das letzte/aktuellste
+        # 2. Fallback: If no future concert exists, use the latest one
         if not next_concert:
             next_concert = Concert.objects.filter(
                 date__isnull=False
             ).order_by('-date').first()
             
-    # Falls die Datenbank komplett leer ist (gar kein Konzert), 
-    # sollten wir den Rest der View überspringen oder eine Meldung zeigen
+    # If the database is completely empty (no concert at all),
+    # we should skip the rest of the view or show a message
     if not next_concert:
         return render(request, 'scorelib/concert_detail.html', {'concert': None})
         
     context = {'concert': next_concert}
     
-    # Die Summe aller 'duration'-Felder der Stücke im Programm berechnen
-    # Wir greifen über das ProgramItem auf das Piece zu
+    # Calculate the sum of all 'duration' fields of pieces in the program
+    # We access the Piece via ProgramItem
     total_duration = next_concert.programitem_set.aggregate(
         total=Sum('piece__duration')
     )['total']
 
-    # Falls das Programm leer ist, setzen wir die Dauer auf 0
+    # If the program is empty, set duration to 0
     if not total_duration:
         from datetime import timedelta
         total_duration = timedelta(0)
         
     context['total_duration'] = total_duration
     
-    # In der views.py innerhalb von concert_detail_view
+    # Format duration for display
     total_seconds = int(total_duration.total_seconds())
     minutes = total_seconds // 60
     seconds = total_seconds % 60
@@ -158,16 +158,16 @@ def concert_detail_view(request, concert_id=None):
     context['formatted_duration'] = formatted_duration
 
     if next_concert:
-        # 2. Das Profil des eingeloggten Nutzers holen
-        # (Nutzt das 'related_name=profile' aus dem Modell)
+        # Get the logged-in user's profile
+        # (Uses the 'related_name=profile' from the model)
         profile = getattr(request.user, 'profile', None)
         
         program_data = []
-        # Wir gehen durch das Programm des Konzerts (ueber ProgramItem fuer die Reihenfolge)
+        # Iterate through the concert program (via ProgramItem for order)
         for item in next_concert.programitem_set.all().select_related('piece'):
             piece = item.piece
             
-            # 3. Filtern der Stimmen basierend auf dem Instrumenten-Filter des Nutzers
+            # Filter parts based on user's instrument filter
             user_parts = []
             if profile and (profile.has_full_archive_access or piece.is_active_for_download()):
                 all_parts = piece.parts.all()
@@ -185,7 +185,7 @@ def concert_detail_view(request, concert_id=None):
 
 @login_required
 def concert_list_view(request):
-    # Alle Konzerte nach Datum sortiert (neueste oben)
+    # All concerts sorted by date (newest first)
     concerts = Concert.objects.all().order_by('title')
     return render(request, 'scorelib/concert_list.html', {'concerts': concerts})
 
@@ -197,14 +197,14 @@ def protected_part_download(request, part_id):
         profile = getattr(request.user, 'profile', None)
         piece = part.piece
         if not profile:
-            return HttpResponse("Zugriff verweigert: Du hast keinen Zugriff auf Noten.", status=403)
+            return HttpResponse("Access denied: You do not have access to sheet music.", status=403)
             
         if not profile.has_full_archive_access:
             if not piece.is_active_for_download():
-                return HttpResponse("Zugriff verweigert: Noten für dieses Stück stehen momentan nicht zur Verfügung.", status=403)
+                return HttpResponse("Access denied: Sheet music for this piece is not currently available.", status=403)
 
             if not profile.can_view_part(part.part_name):
-                return HttpResponse("Zugriff verweigert: Diese Stimme gehört nicht zu deinem Instrumenten-Filter.", status=403)
+                return HttpResponse("Access denied: This part does not belong to your instrument filter.", status=403)
 
     # Pfad zur Datei auf der Festplatte
     file_path = part.pdf_file.path
@@ -212,7 +212,7 @@ def protected_part_download(request, part_id):
         with open(file_path, 'rb') as fh:
             #response = HttpResponse(fh.read(), content_type="application/pdf")
             response = FileResponse(open(file_path, 'rb'), content_type="application/pdf") 
-            # Öffnet das PDF im Browser statt es sofort herunterzuladen
+            # Opens the PDF in the browser instead of downloading immediately
             response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
             return response
     raise Http404
@@ -240,24 +240,24 @@ def piece_csv_import(request):
             csv_file = request.FILES['csv_file']
             
             try:
-                # utf-8-sig hilft gegen Excel-BOM Probleme
+                # utf-8-sig handles Excel BOM issues
                 data_set = csv_file.read().decode('utf-8-sig')
                 io_string = io.StringIO(data_set)
                 
-                # Wir lesen die erste Zeile separat für den Check
+                # Read the header separately for validation
                 reader = csv.DictReader(io_string, delimiter=';')
                 
-                # Konsistenz-Check: Sind die Pflichtspalten vorhanden?
-                # reader.fieldnames enthält die Namen der Kopfzeile
+                # Consistency check: Are required columns present?
+                # reader.fieldnames contains the header names
                 required_columns = ['Title', 'Composer', 'Arranger']
                 missing_columns = [col for col in required_columns if col not in reader.fieldnames]
                 
                 if missing_columns:
                     messages.error(
                         request, 
-                        f"Import abgebrochen: Die CSV-Datei hat ein falsches Format. "
-                        f"Es fehlen folgende Spalten: {', '.join(missing_columns)}. "
-                        f"Bitte prüfen Sie die Groß-/Kleinschreibung."
+                        f"Import cancelled: The CSV file has an incorrect format. "
+                        f"The following columns are missing: {', '.join(missing_columns)}. "
+                        f"Please check the capitalization."
                     )
                     return redirect(request.path)
                 
@@ -268,10 +268,10 @@ def piece_csv_import(request):
                         if not row.get("Title"):
                             continue
                         
-                        # 1. Komponist holen oder neu anlegen
+                        # Get or create composer
                         composer, _ = Composer.objects.get_or_create(name=row.get('Composer', '').strip())
                         
-                        # 2. Arrangeur optional holen oder neu anlegen
+                        # Get or create arranger (optional)
                         arranger = None
                         if row.get('Arranger'):
                             arranger, _ = Arranger.objects.get_or_create(name=row['Arranger'].strip())
@@ -280,12 +280,12 @@ def piece_csv_import(request):
                         if row.get('Publisher'):
                             publisher, _ = Publisher.objects.get_or_create(name=row['Publisher'].strip())
                         
-                        # Schwierigkeitsgrad 
+                        # Difficulty level
                         diff_raw = row.get('Difficulty', '').strip()
                         difficulty = int(diff_raw) if diff_raw.isdigit() else None
                         
-                        # Dauer-Logik für DurationField
-                        duration_raw = row.get('Duration', '').strip() # Angenommen die Spalte heißt jetzt so
+                        # Duration logic for DurationField
+                        duration_raw = row.get('Duration', '').strip() # Assumes column is named this way
                         duration_delta = None
                         
                         if duration_raw and ':' in duration_raw:
@@ -298,9 +298,9 @@ def piece_csv_import(request):
                                     hours, minutes, seconds = map(int, parts)
                                     duration_delta = timedelta(hours=hours, minutes=minutes, seconds=seconds)
                             except ValueError:
-                                pass # Falls Text in der Zeitspalte steht, ignorieren wir es
+                                pass # If text is in the time column, we ignore it
                                 
-                        # 3. Stück anlegen (nur wenn Titel + Komponist Kombi noch nicht existiert)
+                        # Create piece (only if title + composer combination doesn't exist yet)
                         piece, created = Piece.objects.update_or_create(
                             title=row['Title'].strip(),
                             archive_label=row.get('Label', '').strip(),
@@ -313,7 +313,7 @@ def piece_csv_import(request):
                             }
                         )
                         
-                        # 4. Genres verknüpfen (Mehrfachnennung mit Komma möglich)
+                        # Link genres (multiple entries separated by comma possible)
                         if row.get('Genres'):
                             genre_names = [g.strip() for g in row['Genres'].split(',')]
                             for g_name in genre_names:
@@ -331,7 +331,7 @@ def piece_csv_import(request):
                         else:
                             updated_count += 1
                     
-                    messages.success(request, f"Import abgeschlossen: {created_count} Stücke neu angelegt, {updated_count} Stücke aktualisiert.")
+                    messages.success(request, f"Import completed: {created_count} pieces created, {updated_count} pieces updated.")
                     return redirect('admin:scorelib_piece_changelist')
             except UnicodeDecodeError:
                 messages.error(request, "Fehler: Die Datei konnte nicht gelesen werden. Bitte stellen Sie sicher, dass sie als CSV (UTF-8) gespeichert wurde.")
@@ -344,10 +344,10 @@ def piece_csv_import(request):
    
 
 def index(request):
-    # Basis-Queryset
+    # Base queryset
     pieces = Piece.objects.all().select_related('composer', 'arranger', 'publisher').order_by('title')
 
-    # Filterwerte aus der URL (GET) holen
+    # Get filter values from URL (GET request)
     f_search = request.GET.get('search')
     f_genre = request.GET.get('genre')
     f_diff = request.GET.get('difficulty')
@@ -370,13 +370,13 @@ def index(request):
     if f_pub:
         pieces = pieces.filter(publisher__id=f_pub)
     if f_con:
-        # Hier filtern wir über die Setliste (ProgramItems) des gewählten Konzerts
+        # Here we filter via the program (ProgramItems) of the selected concert
         pieces = pieces.filter(programitem__concert_id=f_con)
 
     # Dubletten verhindern (wegen ManyToMany Genres)
     pieces = pieces.distinct()
 
-    # Daten für die Dropdowns im Template
+    # Data for dropdown menus in the template
     context = {
         'pieces': pieces,
         'genres': Genre.objects.all().order_by('name'),
@@ -384,7 +384,7 @@ def index(request):
         'arrangers': Arranger.objects.all().order_by('name'),
         'publishers': Publisher.objects.all().order_by('name'),
         'concerts': Concert.objects.all().order_by('-date'),
-        # Aktive Filter zurückgeben, um "selected" im Template zu setzen
+        # Return active filters to set "selected" in template
         'active_filters': request.GET
     }
     return render(request, 'scorelib/index.html', context)
@@ -397,7 +397,7 @@ def piece_detail(request, pk):
     piece = get_object_or_404(Piece, pk=pk)
     user_profile = getattr(request.user, 'profile', None)
     
-    # Alle Stimmen holen und alphabetisch nach Namen sortieren
+    # Get all parts and sort alphabetically by name
     all_parts = list(piece.parts.all())
     all_parts.sort(key=lambda x: x.part_name.lower())
     
@@ -410,7 +410,7 @@ def piece_detail(request, pk):
             if user_profile.can_view_part(part.part_name):
                 user_parts.append(part)
         
-        # Auch die gefilterte Liste sicherheitshalber sortieren
+        # Sort the filtered list as well for safety
         user_parts.sort(key=lambda x: x.part_name.lower())
 
     return render(request, 'scorelib/piece_detail.html', {
@@ -432,7 +432,7 @@ def import_musicians(request):
         return redirect('scorelib_index')
 
     available_groups = InstrumentGroup.objects.all().order_by('name')
-    # Erstelle ein Set für schnellen Abgleich der Gruppennamen
+    # Create a set for quick group name matching
     group_names_set = {g.name.lower(): g for g in available_groups}
         
     if request.method == "POST":
@@ -462,8 +462,8 @@ def import_musicians(request):
                         groups_raw = row.get("Instruments").strip()
                     except:
                         import_results.append({
-                            'line': line_num, 'name': "Unvollständig", 
-                            'status': "Fehler: Mind. 'FirstName', 'LastName', 'Instruments' nötig", 'type': 'danger'
+                            'line': line_num, 'name': "Incomplete", 
+                            'status': "Error: 'FirstName', 'LastName', 'Instruments' required", 'type': 'danger'
                         })
                         continue
                         
@@ -471,12 +471,12 @@ def import_musicians(request):
                     email_raw = row.get("Email")
                     email = email_raw.strip() if email_raw else ""
                     
-                    # Generiere Userdaten
+                    # Generate user data
                     username = slugify(f"{first_name} {last_name}")
-                    # Passwort: Leerzeichen im Nachnamen entfernen
+                    # Password: remove spaces in last name
                     raw_password = f"SKG-{last_name.replace(' ', '')}"
                     
-                    # Gruppen verarbeiten
+                    # Process groups
                     target_groups = [g.strip() for g in groups_raw.split(',') if g.strip()]
                     valid_groups = []
                     unknown_groups = []
@@ -495,7 +495,7 @@ def import_musicians(request):
                             if not found:
                                 unknown_groups.append(g_name)
                     
-                    # Innerer Savepoint für diese Zeile
+                    # Inner savepoint for this row
                     row_sid = transaction.savepoint()
                     
                     try:
@@ -515,7 +515,7 @@ def import_musicians(request):
                             row_type = "success"
                         else:
                             status_text = "Bereits vorhanden (aktualisiert)"
-                            raw_password = "(unverändert)"
+                            raw_password = "(unchanged)"
                             row_type = "warning"
 
                         # Profil & Instrumentengruppen
@@ -581,10 +581,10 @@ def export_import_results_csv(request):
     if not request.user.is_staff:
         return redirect('scorelib_index')
 
-    # Wir holen die Daten aus dem POST-Request (versteckte Felder im Formular)
-    # oder alternativ: wir generieren sie aus den soeben verarbeiteten Daten.
-    # Da wir sie direkt nach dem Import brauchen, ist ein Download-Button 
-    # auf der Ergebnisseite am sinnvollsten.
+    # Get data from POST request (hidden fields in form)
+    # or alternatively: generate from just-processed data.
+    # Since we need them right after import, a download button
+    # on the results page makes the most sense.
     
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="musiker_zugangsdaten.csv"'

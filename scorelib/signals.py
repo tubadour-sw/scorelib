@@ -15,6 +15,6 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
         # NUR wenn der User ganz neu ist, erstellen wir das Profil
         MusicianProfile.objects.get_or_create(user=instance)
     else:
-        # Bei Updates (z.B. Passwortänderung) nur sicherstellen, dass es da ist
+        # On updates (e.g. password change) just ensure it exists
         if hasattr(instance, 'profile'):
             instance.profile.save()

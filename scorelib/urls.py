@@ -2,12 +2,12 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Startseite für Musiker (nächstes Konzert)
+    # Home page for musicians (next concert)
     path('', views.concert_detail_view, name='next_concert'),
     path('next-concert/', views.concert_detail_view, name='next_concert'),
     
     
-    # API für die Live-Suche
+    # API for live search
     path('api/search/', views.scorelib_search, name='scorelib_api_search'),
     path('concerts/', views.concert_list_view, name='concert_list'),
     path('concerts/<int:concert_id>/', views.concert_detail_view, name='concert_detail'),

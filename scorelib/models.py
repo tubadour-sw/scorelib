@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from datetime import timedelta
 import fnmatch
 
-# --- Core Data (Stammdaten) ---
+# --- Core Data ---
 
 class Genre(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -53,14 +53,14 @@ class InstrumentGroup(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="z.B. Trompete")
     filter_strings = models.CharField(
         max_length=500, 
-        help_text="Komma-getrennte Liste (z.B. Trompete*, Flügelhorn*, Cornet*)"
+        help_text="Comma-separated list (e.g. Trumpet*, French Horn*, Cornet*)"
     )
 
     def __str__(self):
         return self.name
         
     def matches_part(self, part_name):
-        """Prüft, ob der Part-Name zu den Filtern dieser Gruppe passt."""
+        """Check if the part name matches this group's filter patterns."""
         if not self.filter_strings:
             return False
         
@@ -78,7 +78,7 @@ class MusicianProfile(models.Model):
     )
 
     def can_view_part(self, part_name):
-        """Prüft, ob irgendeine der zugeordneten Gruppen den Part matcht."""
+        """Check if any assigned instrument group matches this part."""
         return any(group.matches_part(part_name) for group in self.instrument_groups.all())
         
     def __str__(self):
@@ -91,8 +91,8 @@ class Piece(models.Model):
     additional_info = models.TextField(
         blank=True, 
         null=True, 
-        verbose_name="Zusatzinfos / Sätze / Alternativtitel",
-        help_text="Hier kannst du Sätze (z.B. 1. Allegro) oder alternative Titel eintragen."
+        verbose_name="Additional Info / Movements / Alternative Title",
+        help_text="Here you can enter movements (e.g. 1. Allegro) or alternative titles."
     )
     composer = models.ForeignKey(Composer, on_delete=models.PROTECT, related_name='pieces')
     arranger = models.ForeignKey(Arranger, on_delete=models.SET_NULL, null=True, blank=True, related_name='pieces')
@@ -101,31 +101,31 @@ class Piece(models.Model):
         max_length=50, 
         blank=True, 
         null=True, 
-        verbose_name="Archiv-Label"
+        verbose_name="Archive Label"
     )
     is_medley = models.BooleanField(default=False)
     genres = models.ManyToManyField(Genre, blank=True)
     duration = models.DurationField(
         blank=True, 
         null=True, 
-        verbose_name="Dauer"
+        verbose_name="Duration"
     )
     difficulty = models.IntegerField(
         blank=True, 
         null=True, 
-        verbose_name="Schwierigkeit"
+        verbose_name="Difficulty"
     )
     is_owned_by_orchestra = models.BooleanField(
         default=True, 
-        verbose_name="Eigentum",
-        help_text="Haken weg, wenn wir das Stück von jemand anderem geliehen haben."
+        verbose_name="Orchestra Owned",
+        help_text="Uncheck if we borrowed this piece from someone else."
     )
 
     @property
     def current_status(self):
         """
-        Ermittelt den aktuellen Status des Stücks.
-        Gibt ein Dictionary mit Status-Code und Text zurück.
+        Determine the current status of the piece.
+        Returns a dictionary with status code, label, and availability flag.
         """
         today = timezone.now().date()
         active_loan = self.loan_records.filter(
@@ -137,22 +137,22 @@ class Piece(models.Model):
         if self.is_owned_by_orchestra:
             if active_loan:
                 return {'code': 'OUT', 'label': f'Eigentum (Verliehen an {active_loan.partner_name})', 'available': False}
-            return {'code': 'IN', 'label': 'Eigentum (verfügbar)', 'available': True}
+            return {'code': 'IN', 'label': 'In collection (available)', 'available': True}
         else:
             if active_loan:
                 return {'code': 'BORROWED', 'label': f'Leihgabe (geliehen von {active_loan.partner_name})', 'available': True}
-            return {'code': 'RETURNED', 'label': 'Leihgabe (aktuell zurückgegeben)', 'available': False}
+            return {'code': 'RETURNED', 'label': 'Borrowed (currently returned)', 'available': False}
     
     def is_active_for_download(self):
         """
-        Prüft, ob das Stück für normale Musiker zum Download verfügbar sein soll.
-        Ein Stück ist aktiv, wenn es mit einem Konzert verknüpft ist, 
-        das in der Zukunft liegt oder vor weniger als 14 Tagen stattfand.
+        Check if the piece should be available for download to regular musicians.
+        A piece is active if it is linked to a concert that is in the future
+        or took place less than 14 days ago.
         """
-        grace_period = 14 # in days
+        grace_period = 14  # in days
         deadline = timezone.now().date() - timedelta(days=grace_period)
         
-        # Prüfe, ob es ein verknüpftes Konzert gibt, das nach dem Stichtag liegt
+        # Check if there is a linked concert that is after the deadline
         return self.concerts.filter(date__gte=deadline).exists()
 
     def __str__(self):
@@ -175,11 +175,11 @@ class LoanRecord(models.Model):
     piece = models.ForeignKey(Piece, on_delete=models.CASCADE, related_name='loan_records')
     partner_name = models.CharField(max_length=200, verbose_name="Partner (Verein/Person/Verlag)")
     loan_date = models.DateField(default=timezone.now, verbose_name="Datum (Erhalt/Gabe)")
-    return_date = models.DateField(null=True, blank=True, verbose_name="Rückgabedatum")
+    return_date = models.DateField(null=True, blank=True, verbose_name="Return Date")
     notes = models.TextField(blank=True, null=True, verbose_name="Bemerkungen")
 
     def clean(self):
-        # Prüfung auf Überschneidungen für dasselbe Stück
+        # Check for overlapping loan periods for the same piece
         overlapping = LoanRecord.objects.filter(
             piece=self.piece,
             loan_date__lte=self.return_date if self.return_date else timezone.now().date() + timedelta(days=3650),
@@ -187,7 +187,7 @@ class LoanRecord(models.Model):
         ).exclude(pk=self.pk)
         
         if overlapping.exists():
-            raise ValidationError("Achtung: Dieser Zeitraum überschneidet sich mit einer anderen Buchung für dieses Stück!")
+            raise ValidationError("Warning: This time period overlaps with another booking for this piece!")
 
     class Meta:
         ordering = ['-loan_date']

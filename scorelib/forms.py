@@ -16,14 +16,14 @@ class PartSplitEntryForm(forms.Form):
 PartSplitFormSet = forms.formset_factory(PartSplitEntryForm, extra=1)
 
 class CSVPiecesImportForm(forms.Form):
-    csv_file = forms.FileField(label="CSV-Datei auswählen")
+    csv_file = forms.FileField(label="Select CSV file")
 
 class CSVUserImportForm(forms.Form):
-    csv_file = forms.FileField(label="CSV-Datei auswählen")
+    csv_file = forms.FileField(label="Select CSV file")
     dry_run = forms.BooleanField(
         required=False, 
         initial=True, 
-        label="Dry Run (Nur Fehlerprüfung, keine Speicherung)"
+        label="Dry Run (Check errors only, no save)"
     )
 
 class UserProfileUpdateForm(forms.ModelForm):
@@ -35,12 +35,12 @@ class UserProfileUpdateForm(forms.ModelForm):
         model = User
         fields = ['username', 'email']
         help_texts = {
-            'username': 'Dein Anmeldename. Er darf nur Buchstaben, Zahlen und @/./+/-/_ enthalten.',
+            'username': 'Your login name. It may only contain letters, numbers and @/./+/-/_.',
         }
 
     def clean_username(self):
         username = self.cleaned_data.get('username')
         if User.objects.exclude(pk=self.instance.pk).filter(username=username).exists():
-            raise forms.ValidationError("Dieser Benutzername ist leider schon vergeben.")
+            raise forms.ValidationError("This username is already taken.")
         return username
         
