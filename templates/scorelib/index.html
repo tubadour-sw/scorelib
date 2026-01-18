@@ -109,6 +109,11 @@
 						{{ piece.title }}
 					</a>
 					</strong>
+                    {% if piece.additional_info %}
+                        <small class="text-muted d-block">
+                            {{ piece.additional_info|linebreaksbr }}
+                        </small>
+                    {% endif %}
 				</td>
                 <td>
                     {{ piece.composer.name }}

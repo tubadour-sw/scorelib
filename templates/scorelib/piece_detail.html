@@ -30,6 +30,12 @@
                     <li class="list-group-item"><strong>Genres:</strong> 
                         {% for g in piece.genres.all %}<span class="badge border text-dark fw-normal">{{ g.name }}</span> {% endfor %}
                     </li>
+                    {% if piece.additional_info %}
+                    <li class="list-group-item">
+                        <strong>Zusatzinfos:</strong>
+                        <div class="mt-2 text-secondary small">{{ piece.additional_info|linebreaks }}</div>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
 

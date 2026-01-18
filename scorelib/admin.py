@@ -4,6 +4,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils.html import format_html  
 from django.http import HttpResponseRedirect
+from django import forms
+from django.db import models
 
 # Authentifizierung
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -138,6 +140,10 @@ class PieceAdmin(admin.ModelAdmin):
     
     # Erlaube das Filtern nach Schwierigkeit direkt in der rechten Seitenleiste
     list_filter = ('genres', 'composer', 'arranger', 'difficulty', 'publisher')
+
+    formfield_overrides = {
+        models.TextField: {'widget': forms.Textarea(attrs={'rows': 4, 'cols': 40})},
+    } 
     
     def display_genres(self, obj):
         # Holt alle Genres des Stücks und verbindet sie mit Komma

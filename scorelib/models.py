@@ -87,6 +87,12 @@ class MusicianProfile(models.Model):
 
 class Piece(models.Model):
     title = models.CharField(max_length=200)
+    additional_info = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Zusatzinfos / Sätze / Alternativtitel",
+        help_text="Hier kannst du Sätze (z.B. 1. Allegro) oder alternative Titel eintragen."
+    )
     composer = models.ForeignKey(Composer, on_delete=models.PROTECT, related_name='pieces')
     arranger = models.ForeignKey(Arranger, on_delete=models.SET_NULL, null=True, blank=True, related_name='pieces')
     publisher = models.ForeignKey(Publisher, on_delete=models.SET_NULL, null=True, blank=True, related_name='pieces')

@@ -78,7 +78,9 @@ def scorelib_search(request):
     # Suche in Titel, Komponist oder Archiv-Nummer
     pieces = Piece.objects.filter(
         Q(title__icontains=query) | 
+        Q(additional_info__icontains=query) |
         Q(composer__name__icontains=query) |
+        Q(arranger__name__icontains=query) |
         Q(archive_label__icontains=query)
     ).distinct()[:20] # Limitiert auf 20 Ergebnisse fuer Speed
 
