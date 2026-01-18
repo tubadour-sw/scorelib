@@ -13,7 +13,7 @@ from django.contrib.auth.models import User
 
 # Deine Modelle und Tools
 from .models import (
-    Piece, Part, Composer, Arranger, Publisher, InstrumentGroup,
+    LoanRecord, Piece, Part, Composer, Arranger, Publisher, InstrumentGroup,
     Genre, Venue, Concert, ProgramItem, AudioRecording, MusicianProfile
 )
 from .forms import PartSplitFormSet
@@ -35,10 +35,17 @@ def get_generic_merge_response(admin_obj, request, queryset, title, action_name)
 
 # --- INLINES ---
 # This allows adding Parts directly while editing a Piece
+class LoanRecordInline(admin.TabularInline):
+    model = LoanRecord
+    extra = 1
+    classes = ['collapse'] # Macht die gesamte Historie einklappbar
+    verbose_name = "Verleih-Historie"
+    fields = ('partner_name', 'loan_date', 'return_date', 'notes')
+    
 
 class PartInline(admin.TabularInline):
     model = Part
-    extra = 0  # Auf 0 setzen, damit nicht unnötig leere Zeilen erscheinen
+    extra = 1  # Auf 0 setzen, damit nicht unnötig leere Zeilen erscheinen
     fields = ('part_name', 'pdf_file', 'view_pdf_link')
     readonly_fields = ('view_pdf_link',)
 
@@ -133,17 +140,21 @@ class PublisherAdmin(admin.ModelAdmin):
 
 @admin.register(Piece)
 class PieceAdmin(admin.ModelAdmin):
-    inlines = [PartInline]
+    inlines = [LoanRecordInline, PartInline]
     filter_horizontal = ('genres',)
     # Wir definieren die Spalten
-    list_display = ('title', 'archive_label', 'composer', 'arranger', 'publisher', 'display_genres', 'difficulty', 'duration', 'view_parts_link')
+    list_display = ('title', 'archive_label', 'composer', 'arranger', 'publisher', 'display_genres', 'get_status_display', 'view_parts_link')
     
     # Erlaube das Filtern nach Schwierigkeit direkt in der rechten Seitenleiste
-    list_filter = ('genres', 'composer', 'arranger', 'difficulty', 'publisher')
+    list_filter = ('genres', 'composer', 'arranger', 'difficulty', 'publisher', 'is_owned_by_orchestra')
 
     formfield_overrides = {
         models.TextField: {'widget': forms.Textarea(attrs={'rows': 4, 'cols': 40})},
     } 
+
+    def get_status_display(self, obj):
+        return obj.current_status['label']
+    get_status_display.short_description = "Status"
     
     def display_genres(self, obj):
         # Holt alle Genres des Stücks und verbindet sie mit Komma
@@ -423,6 +434,54 @@ class AudioRecordingAdmin(admin.ModelAdmin):
 
     class Media:
         js = ('admin/js/jquery.init.js', 'js/audio_recording_helper.js')
+
+class CurrentLoanFilter(admin.SimpleListFilter):
+    title = 'Aktueller Status'
+    parameter_name = 'is_active'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('active', 'Nur laufende Vorgänge'),
+            ('closed', 'Abgeschlossen'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'active':
+            return queryset.filter(return_date__isnull=True)
+        if self.value() == 'closed':
+            return queryset.filter(return_date__isnull=False)
+            
+@admin.register(LoanRecord)
+class LoanRecordAdmin(admin.ModelAdmin):
+    # Welche Spalten sollen in der Übersicht erscheinen?
+    list_display = ('piece_link', 'get_type', 'partner_name', 'loan_date', 'return_date', 'is_active_badge')
+    
+    # Filter auf der rechten Seite
+    list_filter = ('piece__is_owned_by_orchestra', 'loan_date', 'return_date', CurrentLoanFilter)
+    
+    # Suche nach Stück oder Partner
+    search_fields = ('piece__title', 'partner_name', 'notes')
+
+    def get_type(self, obj):
+        """Unterscheidet optisch zwischen 'Verliehen' und 'Geliehen'"""
+        if obj.piece.is_owned_by_orchestra:
+            return format_html('<span style="color: #d63384;">↗ Verleih</span>') # Wir geben weg
+        return format_html('<span style="color: #0dcaf0;">↘ Fremd-Leihgabe</span>') # Wir holen her
+    get_type.short_description = "Art"
+
+    def is_active_badge(self, obj):
+        """Zeigt ein farbiges Label, ob der Vorgang noch läuft"""
+        if obj.return_date is None:
+            return format_html('<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 10px;">AKTUELL</span>')
+        return format_html('<span style="color: #6c757d;">Abgeschlossen</span>')
+    is_active_badge.short_description = "Status"
+
+    def piece_link(self, obj):
+        url = reverse("admin:scorelib_piece_change", args=[obj.piece.id])
+        return format_html('<strong><a href="{}">{}</a></strong>', url, obj.piece)
+    
+    piece_link.short_description = "Piece"
+
     
 # Standard User-Admin entfernen und mit unserer Erweiterung neu setzen
 admin.site.unregister(User)

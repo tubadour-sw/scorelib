@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from datetime import timedelta
 import fnmatch
 
@@ -114,6 +115,33 @@ class Piece(models.Model):
         null=True, 
         verbose_name="Schwierigkeit"
     )
+    is_owned_by_orchestra = models.BooleanField(
+        default=True, 
+        verbose_name="Eigentum",
+        help_text="Haken weg, wenn wir das Stück von jemand anderem geliehen haben."
+    )
+
+    @property
+    def current_status(self):
+        """
+        Ermittelt den aktuellen Status des Stücks.
+        Gibt ein Dictionary mit Status-Code und Text zurück.
+        """
+        today = timezone.now().date()
+        active_loan = self.loan_records.filter(
+            loan_date__lte=today
+        ).filter(
+            models.Q(return_date__isnull=True) | models.Q(return_date__gte=today)
+        ).first()
+        
+        if self.is_owned_by_orchestra:
+            if active_loan:
+                return {'code': 'OUT', 'label': f'Eigentum (Verliehen an {active_loan.partner_name})', 'available': False}
+            return {'code': 'IN', 'label': 'Eigentum (verfügbar)', 'available': True}
+        else:
+            if active_loan:
+                return {'code': 'BORROWED', 'label': f'Leihgabe (geliehen von {active_loan.partner_name})', 'available': True}
+            return {'code': 'RETURNED', 'label': 'Leihgabe (aktuell zurückgegeben)', 'available': False}
     
     def is_active_for_download(self):
         """
@@ -142,6 +170,31 @@ class Part(models.Model):
 
     def __str__(self):
         return f"{self.part_name} - {self.piece.title}"
+
+class LoanRecord(models.Model):
+    piece = models.ForeignKey(Piece, on_delete=models.CASCADE, related_name='loan_records')
+    partner_name = models.CharField(max_length=200, verbose_name="Partner (Verein/Person/Verlag)")
+    loan_date = models.DateField(default=timezone.now, verbose_name="Datum (Erhalt/Gabe)")
+    return_date = models.DateField(null=True, blank=True, verbose_name="Rückgabedatum")
+    notes = models.TextField(blank=True, null=True, verbose_name="Bemerkungen")
+
+    def clean(self):
+        # Prüfung auf Überschneidungen für dasselbe Stück
+        overlapping = LoanRecord.objects.filter(
+            piece=self.piece,
+            loan_date__lte=self.return_date if self.return_date else timezone.now().date() + timedelta(days=3650),
+            return_date__gte=self.loan_date
+        ).exclude(pk=self.pk)
+        
+        if overlapping.exists():
+            raise ValidationError("Achtung: Dieser Zeitraum überschneidet sich mit einer anderen Buchung für dieses Stück!")
+
+    class Meta:
+        ordering = ['-loan_date']
+        verbose_name = "Loan History"
+
+    def __str__(self):
+        return f"{self.piece.title} - {self.partner_name} ({self.loan_date})"
 
 # --- Concert Management ---
 

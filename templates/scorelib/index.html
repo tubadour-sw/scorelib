@@ -101,14 +101,17 @@
 		</thead>
         <tbody id="pieceTable">
             {% for piece in pieces %}
-            <tr class="piece-row">
+            <tr class="piece-row {% if not piece.current_status.available %}text-muted opacity-50{% endif %}">
                 <td>{{ piece.archive_label }}</td>
                 <td>
-					<strong>
-					<a href="{% url 'scorelib_piece_detail' piece.id %}" class="fw-bold text-decoration-none text-dark">
-						{{ piece.title }}
-					</a>
-					</strong>
+                    <strong>
+                    <a href="{% url 'scorelib_piece_detail' piece.id %}" class="fw-bold text-decoration-none text-dark">
+                        {{ piece.title }}
+                    </a>
+                    {% if not piece.current_status.available %}
+                        <span class="badge bg-warning text-dark ms-2">Nicht im Archiv</span>
+                    {% endif %}
+                    </strong>
                     {% if piece.additional_info %}
                         <small class="text-muted d-block">
                             {{ piece.additional_info|linebreaksbr }}

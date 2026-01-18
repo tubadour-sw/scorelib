@@ -29,13 +29,15 @@
                     <li class="list-group-item"><strong>Medley:</strong> {% if piece.is_medley %} ja {% else %} nein {% endif %}</li>
                     <li class="list-group-item"><strong>Genres:</strong> 
                         {% for g in piece.genres.all %}<span class="badge border text-dark fw-normal">{{ g.name }}</span> {% endfor %}
-                    </li>
+                    </li>                 
                     {% if piece.additional_info %}
                     <li class="list-group-item">
                         <strong>Zusatzinfos:</strong>
                         <div class="mt-2 text-secondary small">{{ piece.additional_info|linebreaks }}</div>
                     </li>
                     {% endif %}
+                    <li class="list-group-item"><strong>Status:</strong> {{ piece.current_status.label }}</li>
+                    </li>
                 </ul>
             </div>
 
