@@ -33,7 +33,7 @@ from django.contrib.auth.models import User
 # Deine Modelle und Tools
 from .models import (
     LoanRecord, Piece, Part, Composer, Arranger, Publisher, InstrumentGroup,
-    Genre, Venue, Concert, ProgramItem, AudioRecording, MusicianProfile
+    Genre, Venue, Concert, ProgramItem, AudioRecording, MusicianProfile, SiteSettings
 )
 from .forms import PartSplitFormSet
 from .utils import process_pdf_split
@@ -517,3 +517,19 @@ admin.site.register(User, UserAdmin)
 
 # Standard registration for simple models
 admin.site.register(Venue)
+
+
+@admin.register(SiteSettings)
+class SiteSettingsAdmin(admin.ModelAdmin):
+    list_display = ('site_title',)
+
+    def has_add_permission(self, request):
+        # Allow adding only if there's no settings instance yet
+        return SiteSettings.objects.count() == 0
+
+    def changelist_view(self, request, extra_context=None):
+        # Redirect list view to change view of the singleton instance
+        obj = SiteSettings.get_solo()
+        # Use the admin URL name to avoid duplicating app labels in the path
+        url = reverse('admin:scorelib_sitesettings_change', args=[obj.pk])
+        return redirect(url)

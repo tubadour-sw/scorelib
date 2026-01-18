@@ -102,6 +102,28 @@ class MusicianProfile(models.Model):
     def __str__(self):
         return f"Profile of {self.user.username}"
 
+
+class SiteSettings(models.Model):
+    """Singleton model to store site-specific settings editable in the admin.
+
+    Use this model to configure values that differ per orchestra/band,
+    such as the site title, favicon and the legal/imprint text.
+    """
+    site_title = models.CharField(max_length=200, default='SKG Notenbank')
+    favicon = models.ImageField(upload_to='site/', blank=True, null=True)
+    legal_text = models.TextField(blank=True, null=True, help_text='HTML or plain-text legal / imprint content')
+
+    class Meta:
+        verbose_name = 'Site Settings'
+
+    def __str__(self):
+        return 'Site Settings'
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
 # --- Music Library ---
 
 class Piece(models.Model):

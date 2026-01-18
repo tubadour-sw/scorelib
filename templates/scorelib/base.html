@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notendatenbank | SKG</title>
+    <title>{% if site_settings and site_settings.site_title %}{{ site_settings.site_title }}{% else %}Notendatenbank | SKG{% endif %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -14,13 +14,17 @@
         .btn-primary { background-color: #3498db; border: none; }
         .audio-player { width: 100%; margin-top: 10px; }
     </style>
-    <link rel="icon" type="image/png" href="{% static 'favicon.png' %}"/>
+    {% if site_settings and site_settings.favicon %}
+        <link rel="icon" type="image/png" href="{{ site_settings.favicon.url }}"/>
+    {% else %}
+        <link rel="icon" type="image/png" href="{% static 'favicon.png' %}"/>
+    {% endif %}
 </head>
 <body>
 
 <nav class="navbar navbar-expand-lg navbar-dark mb-4">
     <div class="container">
-        <a class="navbar-brand fw-bold" href="{% url 'scorelib_index' %}">🎼 SKG Notenbank</a>
+        <a class="navbar-brand fw-bold" href="{% url 'scorelib_index' %}">🎼 {% if site_settings and site_settings.site_title %}{{ site_settings.site_title }}{% else %}SKG Notenbank{% endif %}</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -51,7 +55,7 @@
 </div>
 
 <footer style="text-align: center; margin-top: 50px; padding: 20px; font-size: 0.9em; color: #666;">
-    <p>&copy; 2026 SKG Notenbank | <a href="{% url 'legal' %}">Impressum & Datenschutz</a></p>
+    <p>&copy; 2026 {% if site_settings and site_settings.site_title %}{{ site_settings.site_title }}{% else %}SKG Notenbank{% endif %} | <a href="{% url 'legal' %}">Impressum & Datenschutz</a></p>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

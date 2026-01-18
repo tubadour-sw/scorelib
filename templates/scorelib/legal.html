@@ -1,22 +1,26 @@
 {% extends "scorelib/base.html" %}
 {% block content %}
 <div class="container" style="line-height: 1.6; max-width: 800px; margin: auto; padding: 20px;">
+    {% if site_settings and site_settings.legal_text %}
+        {{ site_settings.legal_text|safe }}
+    {% else %}
     <h1>Impressum & Datenschutz</h1>
 
     <h2>1. Impressum</h2>
     <p><strong>Betreiber der Notenbank:</strong><br>
-    Stadtkapelle Germering e.V.<br>
-    Friedenstraße 45<br>
-    82110 Germering</p>
+    Dein Verein e.V.<br>
+    Vereinsstraße 3/4<br>
+    4711 Musikstadt</p>
     <p><strong>Kontakt:</strong><br>
-    E-Mail: info@stadtkapelle-germering.de<br>
-    <!-- Telefon: [Deine Telefonnummer]</p> -->
+    E-Mail: info@dein-verein.de<br>
+    Telefon: Deine-Telefonnummer
+    </p> 
 
     <hr>
 
     <h2>2. Datenschutzerklärung</h2>
     <h3>Allgemeines</h3>
-    <p>Diese Notenbank dient der internen Verwaltung Musikstücken für Konzerte. Durch die Nutzung der Seite werden personenbezogene Daten verarbeitet.</p>
+    <p>Diese Notenbank dient der internen Verwaltung von Musikstücken für Konzerte. Durch die Nutzung der Seite werden personenbezogene Daten verarbeitet.</p>
 
     <h3>Welche Daten werden gespeichert?</h3>
     <ul>
@@ -30,5 +34,6 @@
 
     <h3>Deine Rechte</h3>
     <p>Du hast das Recht auf Auskunft, Berichtigung oder Löschung deiner Daten. Wende dich hierzu bitte an den oben genannten Administrator.</p>
+    {% endif %}
 </div>
 {% endblock %}
