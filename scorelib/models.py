@@ -1,3 +1,21 @@
+"""
+SKG Notenbank - Sheet Music Database and Archive Management System
+Copyright (C) 2026 Arno Euteneuer
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -53,7 +71,7 @@ class InstrumentGroup(models.Model):
     name = models.CharField(max_length=100, unique=True, help_text="z.B. Trompete")
     filter_strings = models.CharField(
         max_length=500, 
-        help_text="Comma-separated list (e.g. Trumpet*, French Horn*, Cornet*)"
+        help_text="Komma-getrennte Liste (z.B. Trompete*, Flügelhorn*, Cornet*)"
     )
 
     def __str__(self):
@@ -91,8 +109,8 @@ class Piece(models.Model):
     additional_info = models.TextField(
         blank=True, 
         null=True, 
-        verbose_name="Additional Info / Movements / Alternative Title",
-        help_text="Here you can enter movements (e.g. 1. Allegro) or alternative titles."
+        verbose_name="Zusatzinfos / Sätze / Alternativtitel",
+        help_text="Hier kannst du Sätze (z.B. 1. Allegro) oder alternative Titel eintragen."
     )
     composer = models.ForeignKey(Composer, on_delete=models.PROTECT, related_name='pieces')
     arranger = models.ForeignKey(Arranger, on_delete=models.SET_NULL, null=True, blank=True, related_name='pieces')
@@ -101,24 +119,24 @@ class Piece(models.Model):
         max_length=50, 
         blank=True, 
         null=True, 
-        verbose_name="Archive Label"
+        verbose_name="Archiv-Label"
     )
     is_medley = models.BooleanField(default=False)
     genres = models.ManyToManyField(Genre, blank=True)
     duration = models.DurationField(
         blank=True, 
         null=True, 
-        verbose_name="Duration"
+        verbose_name="Dauer"
     )
     difficulty = models.IntegerField(
         blank=True, 
         null=True, 
-        verbose_name="Difficulty"
+        verbose_name="Schwierigkeit"
     )
     is_owned_by_orchestra = models.BooleanField(
         default=True, 
-        verbose_name="Orchestra Owned",
-        help_text="Uncheck if we borrowed this piece from someone else."
+        verbose_name="Eigentum",
+        help_text="Haken weg, wenn wir das Stück von jemand anderem geliehen haben."
     )
 
     @property
@@ -137,11 +155,11 @@ class Piece(models.Model):
         if self.is_owned_by_orchestra:
             if active_loan:
                 return {'code': 'OUT', 'label': f'Eigentum (Verliehen an {active_loan.partner_name})', 'available': False}
-            return {'code': 'IN', 'label': 'In collection (available)', 'available': True}
+            return {'code': 'IN', 'label': 'Eigentum (verfügbar)', 'available': True}
         else:
             if active_loan:
                 return {'code': 'BORROWED', 'label': f'Leihgabe (geliehen von {active_loan.partner_name})', 'available': True}
-            return {'code': 'RETURNED', 'label': 'Borrowed (currently returned)', 'available': False}
+            return {'code': 'RETURNED', 'label': 'Leihgabe (aktuell zurückgegeben)', 'available': False}
     
     def is_active_for_download(self):
         """
@@ -175,7 +193,7 @@ class LoanRecord(models.Model):
     piece = models.ForeignKey(Piece, on_delete=models.CASCADE, related_name='loan_records')
     partner_name = models.CharField(max_length=200, verbose_name="Partner (Verein/Person/Verlag)")
     loan_date = models.DateField(default=timezone.now, verbose_name="Datum (Erhalt/Gabe)")
-    return_date = models.DateField(null=True, blank=True, verbose_name="Return Date")
+    return_date = models.DateField(null=True, blank=True, verbose_name="Rückgabedatum")
     notes = models.TextField(blank=True, null=True, verbose_name="Bemerkungen")
 
     def clean(self):
@@ -187,7 +205,7 @@ class LoanRecord(models.Model):
         ).exclude(pk=self.pk)
         
         if overlapping.exists():
-            raise ValidationError("Warning: This time period overlaps with another booking for this piece!")
+            raise ValidationError("Achtung: Dieser Zeitraum überschneidet sich mit einer anderen Buchung für dieses Stück!")
 
     class Meta:
         ordering = ['-loan_date']

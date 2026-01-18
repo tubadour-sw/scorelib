@@ -1,3 +1,21 @@
+"""
+SKG Notenbank - Sheet Music Database and Archive Management System
+Copyright (C) 2026 Arno Euteneuer
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 import os
 import csv, io
 from datetime import timedelta
@@ -197,14 +215,14 @@ def protected_part_download(request, part_id):
         profile = getattr(request.user, 'profile', None)
         piece = part.piece
         if not profile:
-            return HttpResponse("Access denied: You do not have access to sheet music.", status=403)
+            return HttpResponse("Zugriff verweigert: Du hast keinen Zugriff auf Noten.", status=403)
             
         if not profile.has_full_archive_access:
             if not piece.is_active_for_download():
-                return HttpResponse("Access denied: Sheet music for this piece is not currently available.", status=403)
+                return HttpResponse("Zugriff verweigert: Noten für dieses Stück stehen momentan nicht zur Verfügung.", status=403)
 
             if not profile.can_view_part(part.part_name):
-                return HttpResponse("Access denied: This part does not belong to your instrument filter.", status=403)
+                return HttpResponse("Zugriff verweigert: Diese Stimme gehört nicht zu deinem Instrumenten-Filter.", status=403)
 
     # Pfad zur Datei auf der Festplatte
     file_path = part.pdf_file.path
@@ -255,9 +273,9 @@ def piece_csv_import(request):
                 if missing_columns:
                     messages.error(
                         request, 
-                        f"Import cancelled: The CSV file has an incorrect format. "
-                        f"The following columns are missing: {', '.join(missing_columns)}. "
-                        f"Please check the capitalization."
+                        f"Import abgebrochen: Die CSV-Datei hat ein falsches Format. "
+                        f"Es fehlen folgende Spalten: {', '.join(missing_columns)}. "
+                        f"Bitte prüfen Sie die Groß-/Kleinschreibung."
                     )
                     return redirect(request.path)
                 
@@ -331,7 +349,7 @@ def piece_csv_import(request):
                         else:
                             updated_count += 1
                     
-                    messages.success(request, f"Import completed: {created_count} pieces created, {updated_count} pieces updated.")
+                    messages.success(request, f"Import abgeschlossen: {created_count} Stücke neu angelegt, {updated_count} Stücke aktualisiert.")
                     return redirect('admin:scorelib_piece_changelist')
             except UnicodeDecodeError:
                 messages.error(request, "Fehler: Die Datei konnte nicht gelesen werden. Bitte stellen Sie sicher, dass sie als CSV (UTF-8) gespeichert wurde.")
@@ -462,8 +480,8 @@ def import_musicians(request):
                         groups_raw = row.get("Instruments").strip()
                     except:
                         import_results.append({
-                            'line': line_num, 'name': "Incomplete", 
-                            'status': "Error: 'FirstName', 'LastName', 'Instruments' required", 'type': 'danger'
+                            'line': line_num, 'name': "Unvollständig", 
+                            'status': "Fehler: Mind. 'FirstName', 'LastName', 'Instruments' nötig", 'type': 'danger'
                         })
                         continue
                         
@@ -515,7 +533,7 @@ def import_musicians(request):
                             row_type = "success"
                         else:
                             status_text = "Bereits vorhanden (aktualisiert)"
-                            raw_password = "(unchanged)"
+                            raw_password = "(unverändert)"
                             row_type = "warning"
 
                         # Profil & Instrumentengruppen

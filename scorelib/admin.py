@@ -1,3 +1,21 @@
+"""
+SKG Notenbank - Sheet Music Database and Archive Management System
+Copyright (C) 2026 Arno Euteneuer
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 from django.contrib import admin, messages
 from django.urls import path, reverse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -24,7 +42,7 @@ from .views import piece_csv_import, import_musicians
 def get_generic_merge_response(admin_obj, request, queryset, title, action_name):
     """Renders the confirmation template for all models"""
     if queryset.count() < 2:
-        admin_obj.message_user(request, "Please select at least two entries.", messages.WARNING)
+        admin_obj.message_user(request, "Bitte wählen Sie mindestens zwei Einträge aus.", messages.WARNING)
         return None
         
     return render(request, 'admin/generic_merge_confirmation.html', {
