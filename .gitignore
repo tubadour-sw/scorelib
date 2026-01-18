@@ -1,8 +1,9 @@
 *.pyc
-db.sqlite3
+db.sqlite3*
 venv/
 media/
 __pycache__/
-backup/
+backups/
 scripts/.env
 .env
+staticfiles/
