@@ -256,9 +256,50 @@ def concert_detail_view(request, concert_id=None):
 
 @login_required
 def concert_list_view(request):
-    # All concerts sorted by date (newest first)
-    concerts = Concert.objects.all().order_by('title')
-    return render(request, 'scorelib/concert_list.html', {'concerts': concerts})
+    # Get filter values from URL
+    f_search = request.GET.get('search', '')
+    f_sort = request.GET.get('sort', 'title')  # 'title' or 'date'
+    f_sort_dir = request.GET.get('sort_dir', 'asc')  # 'asc' or 'desc'
+    
+    # Start with all concerts
+    concerts = Concert.objects.all()
+    
+    # Apply search filter
+    if f_search:
+        concerts = concerts.filter(
+            Q(title__icontains=f_search) |
+            Q(subtitle__icontains=f_search)
+        )
+    
+    # Apply sorting
+    if f_sort == 'date':
+        order_field = 'date'
+    else:  # default to 'title'
+        order_field = 'title'
+    
+    # Apply direction prefix for descending
+    if f_sort_dir == 'desc':
+        order_field = f'-{order_field}'
+    
+    concerts = concerts.order_by(order_field)
+    
+    # Apply pagination: 50 items per page
+    paginator = Paginator(concerts, 50)
+    page_number = request.GET.get('page', 1)
+    try:
+        page_obj = paginator.page(page_number)
+    except Exception:
+        page_obj = paginator.page(1)
+    
+    context = {
+        'concerts': page_obj.object_list,
+        'page_obj': page_obj,
+        'active_filters': request.GET,
+        'current_sort': f_sort,
+        'current_sort_dir': f_sort_dir,
+        'total_count': paginator.count
+    }
+    return render(request, 'scorelib/concert_list.html', context)
 
 @login_required
 def protected_part_download(request, part_id):
