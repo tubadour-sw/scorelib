@@ -18,6 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 import csv, io
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
@@ -179,7 +181,8 @@ def concert_detail_view(request, concert_id=None):
         # Get the logged-in user's profile
         # (Uses the 'related_name=profile' from the model)
         profile = getattr(request.user, 'profile', None)
-        
+        # Expose a boolean for templates to check full archive access
+        context['has_full_archive_access'] = request.user.is_staff or (profile.has_full_archive_access if profile else False)
         program_data = []
         # Iterate through the concert program (via ProgramItem for order)
         for item in next_concert.programitem_set.all().select_related('piece'):
@@ -198,6 +201,9 @@ def concert_detail_view(request, concert_id=None):
             })
             
         context['program_data'] = program_data
+
+    # Ensure templates can access the profile object if needed
+    context['user_profile'] = profile
 
     return render(request, 'scorelib/concert_detail.html', context)
 
@@ -621,6 +627,86 @@ def export_import_results_csv(request):
     for n, e, u, p, i, s in zip(names, emails, usernames, passwords, instrument_groups, statuses):
         writer.writerow([n, e, u, p, i, s])
 
+    return response
+
+
+@login_required
+def export_concert_setlist_gema(request, concert_id):
+    """Export the program of a concert as an Excel (.xlsx) file.
+
+    Required columns:
+    1. index (within the concert)
+    2. Title
+    3. Composer
+    4. Arranger
+    5. Publisher
+    6. Medley (yes/no)
+
+    Also write a small header containing concert name and date.
+    """
+    concert = get_object_or_404(Concert, pk=concert_id)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Setlist"
+
+    # Header rows with concert info
+    ws.append(["Auftritt:", f"{concert.title}"])
+    date_text = concert.date.strftime('%d.%m.%Y %H:%M') if concert.date else ''
+    ws.append(["Datum:", f"{date_text}"])
+    ws.append([])
+
+    # Column headers
+    headers = ['Index', 'Titel', 'Komponist', 'Arrangeur', 'Verlag', 'Potpourri']
+    ws.append(headers)
+
+    # Bold the label cells and the header row
+    bold_font = Font(bold=True)
+    try:
+        ws['A1'].font = bold_font
+        ws['A2'].font = bold_font
+    except Exception:
+        pass
+
+    header_row = ws.max_row
+    for col_idx in range(1, len(headers) + 1):
+        try:
+            ws.cell(row=header_row, column=col_idx).font = bold_font
+        except Exception:
+            pass
+
+    # Fill rows
+    for idx, item in enumerate(concert.programitem_set.all().select_related('piece').order_by('order'), start=1):
+        piece = item.piece
+        title = piece.title or ''
+        composer = piece.composer.name if piece.composer else ''
+        arranger = piece.arranger.name if piece.arranger else ''
+        publisher = piece.publisher.name if piece.publisher else ''
+        medley = 'ja' if getattr(piece, 'is_medley', False) else 'nein'
+
+        ws.append([idx, title, composer, arranger, publisher, medley])
+
+    # Autosize some columns (basic)
+    for col in ws.columns:
+        max_length = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            try:
+                if cell.value and len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except Exception:
+                pass
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[col_letter].width = adjusted_width
+
+    # Write workbook to in-memory bytes
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"setlist_{slugify(concert.title)}-{concert.id}.xlsx"
+    response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
 @login_required

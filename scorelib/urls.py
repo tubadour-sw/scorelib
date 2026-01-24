@@ -11,6 +11,7 @@ urlpatterns = [
     path('api/search/', views.scorelib_search, name='scorelib_api_search'),
     path('concerts/', views.concert_list_view, name='concert_list'),
     path('concerts/<int:concert_id>/', views.concert_detail_view, name='concert_detail'),
+    path('concerts/<int:concert_id>/export/gema/', views.export_concert_setlist_gema, name='export_concert_gema'),
     path('archive/', views.scorelib_index, name='scorelib_index'),
     
     # abgesicherter Download
