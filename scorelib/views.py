@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 import csv, io
+from django.core.paginator import Paginator
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from datetime import timedelta
@@ -60,10 +61,19 @@ def scorelib_index(request):
     f_arr = request.GET.get('arranger')
     f_pub = request.GET.get('publisher')
     f_con = request.GET.get('concert')
+    f_sort = request.GET.get('sort', 'title')  # Default sort by title
+    f_sort_dir = request.GET.get('sort_dir', 'asc')  # 'asc' or 'desc'
+    f_sort_artist = request.GET.get('sort_artist', 'composer')  # Choose composer or arranger for the artist column
 
     # Filter anwenden
     if f_search:
-        pieces = pieces.filter(Q(title__icontains=f_search) | Q(archive_label__icontains=f_search))
+        pieces = pieces.filter(
+            Q(title__icontains=f_search) | 
+            Q(archive_label__icontains=f_search) |
+            Q(composer__name__icontains=f_search) |
+            Q(arranger__name__icontains=f_search) |
+            Q(additional_info__icontains=f_search)
+        )
     if f_genre:
         pieces = pieces.filter(genres__id=f_genre)
     if f_diff:
@@ -80,15 +90,52 @@ def scorelib_index(request):
 
     # Prevent duplicates (due to ManyToMany Genres)
     pieces = pieces.distinct()
+
+    # Apply sorting to the full queryset before pagination
+    f_sort_artist = request.GET.get('sort_artist', 'composer')  # Choose composer or arranger for the artist column
+    
+    if f_sort == 'title':
+        order_field = 'title'
+    elif f_sort == 'composer':
+        # Sort by chosen artist field (composer or arranger)
+        if f_sort_artist == 'arranger':
+            order_field = 'arranger__name'
+        else:
+            order_field = 'composer__name'
+    elif f_sort == 'publisher':
+        order_field = 'publisher__name'
+    elif f_sort == 'difficulty':
+        order_field = 'difficulty'
+    else:
+        order_field = 'title'
+    
+    # Apply direction prefix for descending
+    if f_sort_dir == 'desc':
+        order_field = f'-{order_field}'
+    
+    pieces = pieces.order_by(order_field)
+    
+    # Apply pagination: 50 items per page
+    paginator = Paginator(pieces, 50)
+    page_number = request.GET.get('page', 1)
+    try:
+        page_obj = paginator.page(page_number)
+    except Exception:
+        page_obj = paginator.page(1)
     
     context = {
-        'pieces': pieces,
+        'pieces': page_obj.object_list,  # Only the pieces for this page
+        'page_obj': page_obj,  # The paginator object for template
         'genres': Genre.objects.all().order_by('name'),
         'composers': Composer.objects.all().order_by('name'),
         'arrangers': Arranger.objects.all().order_by('name'),
         'publishers': Publisher.objects.all().order_by('name'),
         'concerts': Concert.objects.all().order_by('-date'),
-        'active_filters': request.GET
+        'active_filters': request.GET,
+        'current_sort': f_sort,
+        'current_sort_dir': f_sort_dir,
+        'current_sort_artist': f_sort_artist,
+        'total_count': paginator.count
     }
     return render(request, 'scorelib/index.html', context)
 

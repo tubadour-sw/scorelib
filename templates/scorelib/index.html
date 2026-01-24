@@ -4,12 +4,30 @@
 <div class="row mb-4">
     <div class="col-md-8">
         <h2 class="display-6">Musikarchiv</h2>
-        <p class="text-muted">Durchstöbere die gesamte Bibliothek des Orchesters.</p>
+        <p class="text-muted">{{ total_count }} Stücke — Durchstöbere die gesamte Bibliothek des Orchesters.</p>
     </div>
-    <div class="col-md-6 d-flex gap-2 justify-content-md-end">
-        <input type="text" id="searchInput" class="form-control border-primary" style="max-width: 300px;" placeholder="Titel oder Komponist suchen...">
-        
-        <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
+</div>
+
+<!-- Always-visible search bar -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <form method="GET" action="{% url 'scorelib_index' %}" class="d-flex gap-2">
+            <input type="text" name="search" class="form-control" placeholder="Titel, Komponist, Arrangeur oder Info durchsuchen..." value="{{ active_filters.search }}">
+            <!-- Preserve all other filters in hidden fields -->
+            {% if active_filters.genre %}<input type="hidden" name="genre" value="{{ active_filters.genre }}">{% endif %}
+            {% if active_filters.difficulty %}<input type="hidden" name="difficulty" value="{{ active_filters.difficulty }}">{% endif %}
+            {% if active_filters.composer %}<input type="hidden" name="composer" value="{{ active_filters.composer }}">{% endif %}
+            {% if active_filters.arranger %}<input type="hidden" name="arranger" value="{{ active_filters.arranger }}">{% endif %}
+            {% if active_filters.publisher %}<input type="hidden" name="publisher" value="{{ active_filters.publisher }}">{% endif %}
+            {% if active_filters.concert %}<input type="hidden" name="concert" value="{{ active_filters.concert }}">{% endif %}
+            {% if active_filters.sort %}<input type="hidden" name="sort" value="{{ active_filters.sort }}">{% endif %}
+            {% if active_filters.sort_artist %}<input type="hidden" name="sort_artist" value="{{ active_filters.sort_artist }}">{% endif %}
+            {% if active_filters.sort_dir %}<input type="hidden" name="sort_dir" value="{{ active_filters.sort_dir }}">{% endif %}
+            <button type="submit" class="btn btn-primary">Suchen</button>
+        </form>
+    </div>
+    <div class="col-md-4 d-flex justify-content-end">
+        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
             <i class="bi bi-filter"></i> Filter
         </button>
     </div>
@@ -19,10 +37,12 @@
     <div class="card mb-4 border-0 shadow-sm bg-light">
         <div class="card-body">
             <form method="GET" action="{% url 'scorelib_index' %}" class="row g-2">
-                <div class="col-md-4">
-                    <label class="small fw-bold">Suche</label>
-                    <input type="text" name="search" class="form-control" placeholder="Titel / Archiv-Nr..." value="{{ active_filters.search }}">
-                </div>
+                <!-- Preserve search and sort in hidden fields -->
+                {% if active_filters.search %}<input type="hidden" name="search" value="{{ active_filters.search }}">{% endif %}
+                {% if active_filters.sort %}<input type="hidden" name="sort" value="{{ active_filters.sort }}">{% endif %}
+                {% if active_filters.sort_artist %}<input type="hidden" name="sort_artist" value="{{ active_filters.sort_artist }}">{% endif %}
+                {% if active_filters.sort_dir %}<input type="hidden" name="sort_dir" value="{{ active_filters.sort_dir }}">{% endif %}
+                
                 <div class="col-md-3">
                     <label class="small fw-bold">Genre</label>
                     <select name="genre" class="form-select">
@@ -76,8 +96,15 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <label class="small fw-bold">Künstler sortieren nach</label>
+                    <select name="sort_artist" class="form-select">
+                        <option value="composer" {% if current_sort_artist == 'composer' %}selected{% endif %}>Komponist</option>
+                        <option value="arranger" {% if current_sort_artist == 'arranger' %}selected{% endif %}>Arrangeur</option>
+                    </select>
+                </div>
                 <div class="col-md-3 d-flex align-items-end gap-2">
-                    <button type="submit" class="btn btn-primary flex-grow-1">Filtern</button>
+                    <button type="submit" class="btn btn-primary flex-grow-1">Anwenden</button>
                     <a href="{% url 'scorelib_index' %}" class="btn btn-outline-secondary">Reset</a>
                 </div>
             </form>
@@ -89,13 +116,33 @@
     <table class="table table-hover align-middle">
         <thead class="table-light">
 			<tr>
-				<th onclick="sortTable(0)" style="cursor:pointer">Label ↕</th>
-				<th onclick="sortTable(1)" style="cursor:pointer">Titel ↕</th>
-				<th onclick="sortTable(2)" style="cursor:pointer">Komponist ↕</th>
-				<th onclick="sortTable(3)" style="cursor:pointer">Verlag ↕</th>
-				<th onclick="sortTable(4, 'count')" style="cursor:pointer">Genres ↕</th>
-				<th onclick="sortTable(5)" style="cursor:pointer">Stufe ↕</th>
-				<th onclick="sortTable(6, 'count')" style="cursor:pointer">Konzerte ↕</th>
+				<th>
+					<a href="?{{ active_filters.urlencode }}&sort=label{% if current_sort == 'label' %}&sort_dir={% if current_sort_dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}&sort_dir=asc{% endif %}" style="cursor:pointer; text-decoration: none; color: inherit;">
+						Label {% if current_sort == 'label' %}{% if current_sort_dir == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+					</a>
+				</th>
+				<th>
+					<a href="?{{ active_filters.urlencode }}&sort=title{% if current_sort == 'title' %}&sort_dir={% if current_sort_dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}&sort_dir=asc{% endif %}" style="cursor:pointer; text-decoration: none; color: inherit;">
+						Titel {% if current_sort == 'title' %}{% if current_sort_dir == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+					</a>
+				</th>
+				<th>
+					<a href="?{{ active_filters.urlencode }}&sort=composer{% if current_sort == 'composer' %}&sort_dir={% if current_sort_dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}&sort_dir=asc{% endif %}" style="cursor:pointer; text-decoration: none; color: inherit;">
+						Komponist {% if current_sort == 'composer' %}{% if current_sort_dir == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+					</a>
+				</th>
+				<th>
+					<a href="?{{ active_filters.urlencode }}&sort=publisher{% if current_sort == 'publisher' %}&sort_dir={% if current_sort_dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}&sort_dir=asc{% endif %}" style="cursor:pointer; text-decoration: none; color: inherit;">
+						Verlag {% if current_sort == 'publisher' %}{% if current_sort_dir == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+					</a>
+				</th>
+				<th>Genres</th>
+				<th>
+					<a href="?{{ active_filters.urlencode }}&sort=difficulty{% if current_sort == 'difficulty' %}&sort_dir={% if current_sort_dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}&sort_dir=asc{% endif %}" style="cursor:pointer; text-decoration: none; color: inherit;">
+						Stufe {% if current_sort == 'difficulty' %}{% if current_sort_dir == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+					</a>
+				</th>
+				<th>Konzerte</th>
 				<th>Audio</th> 
 			</tr>
 		</thead>
@@ -184,58 +231,52 @@
     </table>
 </div>
 
-<script>
-    // Echtzeit-Suche für die Tabelle
-    document.getElementById('searchInput').addEventListener('keyup', function() {
-        let filter = this.value.toLowerCase();
-        let rows = document.querySelectorAll('.piece-row');
-        
-        rows.forEach(row => {
-            let text = row.innerText.toLowerCase();
-            row.style.display = text.includes(filter) ? '' : 'none';
-        });
-    });
-</script>
+<!-- Pagination Controls -->
+{% if page_obj.has_other_pages %}
+<nav class="mt-4" aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?{{ active_filters.urlencode }}&page=1">Erste</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?{{ active_filters.urlencode }}&page={{ page_obj.previous_page_number }}">← Zurück</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">Erste</span>
+        </li>
+        <li class="page-item disabled">
+            <span class="page-link">← Zurück</span>
+        </li>
+        {% endif %}
+
+        <li class="page-item active">
+            <span class="page-link">Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}</span>
+        </li>
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?{{ active_filters.urlencode }}&page={{ page_obj.next_page_number }}">Vor →</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?{{ active_filters.urlencode }}&page={{ page_obj.paginator.num_pages }}">Letzte</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">Vor →</span>
+        </li>
+        <li class="page-item disabled">
+            <span class="page-link">Letzte</span>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
 
 <script>
-    // 1. Dein bestehendes Skript für die Echtzeit-Suche (bleibt erhalten)
-    document.getElementById('searchInput').addEventListener('keyup', function() {
-        let filter = this.value.toLowerCase();
-        let rows = document.querySelectorAll('.piece-row');
-        rows.forEach(row => {
-            let text = row.innerText.toLowerCase();
-            row.style.display = text.includes(filter) ? '' : 'none';
-        });
-    });
-
-    // 2. Das neue Skript für die Tabellen-Sortierung
-    let sortDirections = {};
-
-    function sortTable(colIndex, type = 'text') {
-        const table = document.querySelector("table tbody");
-        const rows = Array.from(table.querySelectorAll("tr"));
-        
-        sortDirections[colIndex] = !sortDirections[colIndex];
-        const dir = sortDirections[colIndex] ? 1 : -1;
-
-        const sortedRows = rows.sort((a, b) => {
-            // Hilfsfunktion um den Wert aus der Zelle zu ziehen
-            let valA = a.cells[colIndex].innerText.trim();
-            let valB = b.cells[colIndex].innerText.trim();
-
-            if (type === 'count') {
-                // Zählt Badges (Genres) oder Divs (Konzerte)
-                valA = a.cells[colIndex].querySelectorAll('.badge, div.mb-1').length;
-                valB = b.cells[colIndex].querySelectorAll('.badge, div.mb-1').length;
-                return (valA - valB) * dir;
-            }
-
-            // Standard Text-Sortierung (beachtet Zahlen korrekt dank numeric:true)
-            return valA.localeCompare(valB, undefined, {numeric: true, sensitivity: 'base'}) * dir;
-        });
-
-        table.append(...sortedRows);
-    }
+    // Removed live search and client-side sorting
+    // All filtering, searching and sorting now happens server-side via GET parameters
 </script>
 
 {% endblock %}
