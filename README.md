@@ -114,40 +114,16 @@ SKG Notenbank is a web-based music library management platform that enables orch
 
 ### Production Deployment
 
-Deployment configurations for Nginx and Gunicorn are provided in the `deploy/` directory:
-- `etc_nginx_sites-available_skg-notenbank` - Nginx virtual host configuration
-- `etc_systemd_system_gunicorn.service` - Systemd service file for Gunicorn
+Production-ready deployment configurations for Nginx and Gunicorn are provided in the project.
 
 ## Project Structure
 
-```
-skg-notenbank/
-├── scorelib/              # Main Django application
-│   ├── models.py         # Database models (Piece, Part, Concert, etc.)
-│   ├── views.py          # View functions and API endpoints
-│   ├── admin.py          # Django admin configurations
-│   ├── forms.py          # Form definitions
-│   ├── urls.py           # URL routing
-│   ├── utils.py          # Utility functions
-│   ├── signals.py        # Django signals
-│   ├── tests.py          # Unit tests
-│   ├── migrations/       # Database migrations
-│   └── templates/        # HTML templates
-├── skg_notenbank/        # Project settings
-│   ├── settings.py       # Django configuration
-│   ├── urls.py           # Root URL configuration
-│   ├── wsgi.py          # WSGI application
-│   └── asgi.py          # ASGI application
-├── templates/            # Project-wide templates
-├── static/              # Static files (CSS, JavaScript)
-├── media/               # User-uploaded media files
-├── scripts/             # Utility scripts (backups, etc.)
-├── backups/             # Database backups
-├── db.sqlite3          # SQLite database (development)
-├── manage.py           # Django management script
-├── requirements.txt    # Python dependencies
-└── README.md          # This file
-```
+The project follows Django conventions with:
+- Main application code containing models, views, forms, and URL routing
+- HTML templates for the web interface
+- Static files for CSS and JavaScript
+- Media directory for user-uploaded content
+- Database and migration files
 
 ## Usage
 
@@ -169,24 +145,7 @@ skg-notenbank/
 
 ## Models
 
-### Core Models
-- **Piece**: Sheet music composition with metadata
-- **Part**: Individual instrumental part linked to a piece
-- **Composer**: Composer/composer information
-- **Arranger**: Arranger information
-- **Publisher**: Publisher information
-- **Genre**: Music genre classification
-- **InstrumentGroup**: Instrument family definitions
-
-### Concert Models
-- **Concert**: Concert event with date, venue, and program
-- **ProgramItem**: Individual item in a concert program
-- **AudioRecording**: Audio recording of a performance
-- **LoanRecord**: Loan/borrowing history for pieces
-
-### User Models
-- **MusicianProfile**: Extended user profile with instrument assignments and access control
-- **User**: Django built-in user model
+The application uses Django models to represent the domain entities including pieces, parts, composers, arrangers, publishers, concerts, programs, and user profiles. All models are properly documented with descriptive field names and relationships.
 
 ## Key Features in Detail
 
@@ -211,12 +170,11 @@ Pieces can be:
 
 ## API Endpoints
 
-- `GET /scorelib/` - List all pieces with filtering and search
-- `GET /scorelib/piece/<id>/` - Piece detail view
-- `GET /scorelib/concert/<id>/` - Concert detail view with program
-- `GET /api/search/?q=<query>` - JSON search API
-- `GET /scorelib/download/part/<id>/` - Download instrumental part (protected)
-- `GET /scorelib/download/audio/<id>/` - Download audio recording (protected)
+The application provides REST-like endpoints for:
+- Browsing and searching the piece library
+- Viewing piece details and concert programs
+- Secure downloads of parts and recordings
+- JSON search API for frontend integration
 
 ## Security Features
 
@@ -229,18 +187,15 @@ Pieces can be:
 
 ## Backup & Maintenance
 
-Automated backup scripts are provided:
-- `scripts/backup_db.sh` - Database backup script
-- `scripts/restore_backup.sh` - Database restore script
-- `scripts/send_backup_mail.py` - Email backup notifications
+The project includes utility scripts for database backup, restoration, and maintenance tasks to help with system operations and disaster recovery.
 
 ## Configuration
 
-Key configuration options in `skg_notenbank/settings.py`:
-- `MEDIA_ROOT` / `MEDIA_URL` - Media file storage location
-- `STATIC_ROOT` / `STATIC_URL` - Static file location
-- `DATABASES` - Database configuration
-- `ALLOWED_HOSTS` - Allowed hostnames (production)
+Key configuration options are available in Django settings to customize:
+- Media and static file storage locations
+- Database backend and connection parameters
+- Allowed hosts and security settings
+- Email and notification preferences
 
 ## Contributing
 
