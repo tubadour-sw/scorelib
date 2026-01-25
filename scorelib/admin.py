@@ -170,6 +170,7 @@ class PublisherAdmin(admin.ModelAdmin):
 class PieceAdmin(admin.ModelAdmin):
     inlines = [LoanRecordInline, PartInline]
     filter_horizontal = ('genres',)
+    autocomplete_fields = ('composer', 'arranger', 'publisher')  # Enable searchable dropdowns
     # Define the columns
     list_display = ('title', 'archive_label', 'composer', 'arranger', 'publisher', 'display_genres', 'get_status_display', 'view_parts_link')
     
@@ -283,6 +284,7 @@ class ConcertAdmin(admin.ModelAdmin):
     list_display = ('title', 'subtitle', 'date', 'venue')
     list_filter = ('date', 'venue')
     search_fields = ['title', 'subtitle']
+    autocomplete_fields = ('venue',)  # Enable searchable venue dropdown
     inlines = [ProgramItemInline]
     
     actions = ['merge_concerts_action']
@@ -516,7 +518,10 @@ admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
 
 # Standard registration for simple models
-admin.site.register(Venue)
+@admin.register(Venue)
+class VenueAdmin(admin.ModelAdmin):
+    search_fields = ['name']  # Enable autocomplete search
+    list_display = ('name', 'address')
 
 
 @admin.register(SiteSettings)
