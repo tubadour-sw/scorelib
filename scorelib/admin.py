@@ -25,6 +25,8 @@ from django.http import HttpResponseRedirect
 from django import forms
 from django.db import models
 from django.forms import Textarea
+from difflib import SequenceMatcher
+import json
 
 # Authentifizierung
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -38,6 +40,84 @@ from .models import (
 from .forms import PartSplitFormSet
 from .utils import process_pdf_split
 from .views import piece_csv_import, import_musicians
+
+def find_similar_names(queryset, threshold=0.80):
+    """Find similar names and group them into clusters using connectivity.
+    
+    Returns a list of clusters, where each cluster is a dict with:
+    - 'entries': list of dicts with id, name
+    - 'min_similarity': the minimum similarity percentage in the cluster
+    - 'avg_similarity': the average similarity percentage in the cluster
+    """
+    items = list(queryset.values_list('id', 'name').order_by('name'))
+    
+    if len(items) < 2:
+        return []
+    
+    # Build a similarity graph: edges between entries with similarity >= threshold
+    similarity_graph = {}  # item_index -> [(item_index, similarity), ...]
+    
+    for i in range(len(items)):
+        similarity_graph[i] = []
+    
+    for i, (id1, name1) in enumerate(items):
+        for j, (id2, name2) in enumerate(items[i+1:], start=i+1):
+            norm_name1 = name1.lower().strip()
+            norm_name2 = name2.lower().strip()
+            
+            if norm_name1 == norm_name2:
+                continue  # Skip exact duplicates (handle separately)
+            
+            matcher = SequenceMatcher(None, norm_name1, norm_name2)
+            ratio = matcher.ratio()
+            
+            if ratio >= threshold:
+                similarity_graph[i].append((j, ratio))
+                similarity_graph[j].append((i, ratio))
+    
+    # Find connected components (clusters) using DFS
+    visited = set()
+    clusters = []
+    
+    def dfs(node, cluster_indices):
+        visited.add(node)
+        cluster_indices.append(node)
+        for neighbor, sim in similarity_graph[node]:
+            if neighbor not in visited:
+                dfs(neighbor, cluster_indices)
+    
+    for i in range(len(items)):
+        if i not in visited and similarity_graph[i]:  # Only if has connections
+            cluster_indices = []
+            dfs(i, cluster_indices)
+            
+            # Convert indices to entries with similarity scores
+            cluster_entries = []
+            cluster_similarities = []
+            
+            for idx in cluster_indices:
+                cluster_entries.append({
+                    'id': items[idx][0],
+                    'name': items[idx][1],
+                })
+                # Get similarity scores for this entry
+                for neighbor_idx, sim in similarity_graph[idx]:
+                    if neighbor_idx in cluster_indices:
+                        cluster_similarities.append(sim)
+            
+            if cluster_entries:
+                avg_sim = sum(cluster_similarities) / len(cluster_similarities) if cluster_similarities else 0
+                min_sim = min(cluster_similarities) if cluster_similarities else 0
+                
+                clusters.append({
+                    'entries': sorted(cluster_entries, key=lambda x: x['name'].lower()),
+                    'min_similarity': round(min_sim * 100, 1),
+                    'avg_similarity': round(avg_sim * 100, 1),
+                })
+    
+    # Sort by average similarity descending
+    return sorted(clusters, key=lambda x: x['avg_similarity'], reverse=True)
+
 
 def get_generic_merge_response(admin_obj, request, queryset, title, action_name):
     """Renders the confirmation template for all models"""
@@ -95,7 +175,7 @@ class ProgramItemInline(admin.TabularInline):
 class ComposerAdmin(admin.ModelAdmin):
     search_fields = ['name'] # Required for autocomplete
     list_display = ('name',)
-    actions = ['merge_composers_action']
+    actions = ['merge_composers_action', 'suggest_merge_composers_action']
 
     # Example for Composer (Arranger similar)
     def merge_composers_action(self, request, queryset):
@@ -113,7 +193,14 @@ class ComposerAdmin(admin.ModelAdmin):
         
         return get_generic_merge_response(self, request, queryset, "Composer mergen", "merge_composers_action")
 
-        merge_composers_action.short_description = "Ausgewählte Composer zusammenführen"
+    merge_composers_action.short_description = "Ausgewählte Composer zusammenführen"
+    
+    def suggest_merge_composers_action(self, request, queryset):
+        """Find and suggest potential duplicate composers based on name similarity."""
+        # Redirect to the dedicated suggestions page
+        return redirect(reverse('suggest_merges_page', args=['composer']))
+    
+    suggest_merge_composers_action.short_description = "Mögliche Duplikate vorschlagen"
  
 
 @admin.register(Arranger)
@@ -121,7 +208,7 @@ class ArrangerAdmin(admin.ModelAdmin):
     search_fields = ['name'] # Required for autocomplete
     
     list_display = ('name',)
-    actions = ['merge_arrangers_action']
+    actions = ['merge_arrangers_action', 'suggest_merge_arrangers_action']
 
     def merge_arrangers_action(self, request, queryset):
         if 'apply' in request.POST:
@@ -139,13 +226,20 @@ class ArrangerAdmin(admin.ModelAdmin):
         return get_generic_merge_response(self, request, queryset, "Komponisten mergen", "merge_arrangers_action")
 
     merge_arrangers_action.short_description = "Ausgewählte Arranger zusammenführen"
+    
+    def suggest_merge_arrangers_action(self, request, queryset):
+        """Find and suggest potential duplicate arrangers based on name similarity."""
+        # Redirect to the dedicated suggestions page
+        return redirect(reverse('suggest_merges_page', args=['arranger']))
+    
+    suggest_merge_arrangers_action.short_description = "Mögliche Duplikate vorschlagen"
  
 
 @admin.register(Publisher)
 class PublisherAdmin(admin.ModelAdmin):
     search_fields = ['name'] # Required for autocomplete
     
-    actions = ['merge_publisher_action']
+    actions = ['merge_publisher_action', 'suggest_merge_publisher_action']
 
     # Example for Publisher (Arranger similar)
     def merge_publisher_action(self, request, queryset):
@@ -163,7 +257,14 @@ class PublisherAdmin(admin.ModelAdmin):
         
         return get_generic_merge_response(self, request, queryset, "Publisher mergen", "merge_publisher_action")
 
-        merge_publisher_action.short_description = "Ausgewählte Publisher zusammenführen"
+    merge_publisher_action.short_description = "Ausgewählte Publisher zusammenführen"
+    
+    def suggest_merge_publisher_action(self, request, queryset):
+        """Find and suggest potential duplicate publishers based on name similarity."""
+        # Redirect to the dedicated suggestions page
+        return redirect(reverse('suggest_merges_page', args=['publisher']))
+    
+    suggest_merge_publisher_action.short_description = "Mögliche Duplikate vorschlagen"
 
 
 @admin.register(Piece)

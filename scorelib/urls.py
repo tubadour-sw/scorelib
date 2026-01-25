@@ -21,4 +21,8 @@ urlpatterns = [
     path('legal/', views.legal_view, name='legal'),
     path('profile/', views.profile_view, name='profile_view'),
     path('import-csv-user/export/', views.export_import_results_csv, name='export_musicians_results'),
+    
+    # Merge suggestions workflow
+    path('suggest-merges/<str:model_name>/', views.suggest_merges_page, name='suggest_merges_page'),
+    path('merge-cluster/<str:model_name>/', views.merge_cluster_confirm, name='merge_cluster_confirm'),
 ]
