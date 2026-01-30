@@ -21,12 +21,14 @@ from django.urls import path, reverse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils.html import format_html  
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, HttpResponse
 from django import forms
 from django.db import models
 from django.forms import Textarea
 from difflib import SequenceMatcher
 import json
+import io
+import zipfile
 
 # Authentifizierung
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -131,6 +133,43 @@ def get_generic_merge_response(admin_obj, request, queryset, title, action_name)
         'master_field_name': 'master_id',
         'action_name': action_name,
     })
+
+
+@admin.action(description="Ausgewählte Stücke als ZIP herunterladen")
+def download_parts_as_zip(modeladmin, request, queryset):
+    buffer = io.BytesIO()
+    try:
+        with zipfile.ZipFile(buffer, 'w') as zip_file:
+            max_files = 500  # Limit to avoid huge downloads
+            file_count = 0
+            for piece in queryset:
+                if file_count >= max_files:
+                    break
+                parts = piece.parts.all()
+                for part in parts:
+                    if part.pdf_file: 
+                        if file_count >= max_files:
+                            break
+                        file_path = part.pdf_file.path
+
+                        # Generate filename (clean special characters/spaces)
+                        safe_title = "".join(x for x in piece.title if x.isalnum() or x in "._- ")
+                        safe_part = "".join(x for x in part.part_name if x.isalnum() or x in "._- ")
+                        filename = f"{safe_title}_{safe_part}.pdf"
+                        # arcname is name inside ZIP
+                        arcname = f"{safe_title}/{filename}".replace(" ", "_")
+                        try:
+                            zip_file.write(file_path, arcname)
+                        except FileNotFoundError:
+                            continue
+    except Exception as e:
+        modeladmin.message_user(request, f"Fehler beim Erstellen der ZIP: {e}", level='ERROR')
+        return HttpResponseRedirect(request.get_full_path())
+    
+    buffer.seek(0)
+    response = HttpResponse(buffer.read(), content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="noten_export.zip"'
+    return response
 
 # --- INLINES ---
 # This allows adding Parts directly while editing a Piece
@@ -269,18 +308,34 @@ class PublisherAdmin(admin.ModelAdmin):
 
 @admin.register(Piece)
 class PieceAdmin(admin.ModelAdmin):
+    # Inlines und Auswahl-Hilfen
     inlines = [LoanRecordInline, PartInline]
     filter_horizontal = ('genres',)
-    autocomplete_fields = ('composer', 'arranger', 'publisher')  # Enable searchable dropdowns
-    # Define the columns
-    list_display = ('title', 'archive_label', 'composer', 'arranger', 'publisher', 'display_genres', 'get_status_display', 'view_parts_link')
+    autocomplete_fields = ('composer', 'arranger', 'publisher')
     
-    # Allow filtering by difficulty directly in the right sidebar
-    list_filter = ('genres', 'composer', 'arranger', 'difficulty', 'publisher', 'is_owned_by_orchestra')
+    # readonly_fields für den Button
+    readonly_fields = ('download_button',)
 
-    formfield_overrides = {
-        models.TextField: {'widget': forms.Textarea(attrs={'rows': 4, 'cols': 40})},
-    } 
+    # Die neuen Fieldsets für Struktur
+    fieldsets = (    
+        ('Basis-Informationen', {
+            'fields': ('title', 'additional_info', 'archive_label', 'is_owned_by_orchestra')
+        }),
+        ('Musikalische Details', {
+            'fields': ('composer', 'arranger', 'publisher', 'genres', 'is_medley', 'duration', 'difficulty')
+        }),
+        ('Aktionen', {
+            'fields': ('download_button',),
+        }),
+    )
+
+    # Listenansicht
+    list_display = ('title', 'archive_label', 'composer', 'arranger', 'publisher', 'display_genres', 'get_status_display', 'view_parts_link')
+    list_filter = ('genres', 'composer', 'arranger', 'difficulty', 'publisher', 'is_owned_by_orchestra')
+    search_fields = ('title', 'archive_label', 'composer__name', 'arranger__name', 'additional_info')
+    list_editable = ('archive_label',)
+    list_display_links = ('title',)
+    actions = [download_parts_as_zip]
 
     def get_status_display(self, obj):
         return obj.current_status['label']
@@ -308,29 +363,39 @@ class PieceAdmin(admin.ModelAdmin):
     search_fields = ('title', 'archive_label', 'composer__name', 'arranger__name', 'additional_info')
     ordering = ('title',)
 
-    # Register the special split URL
+    def download_button(self, obj):
+        if obj.pk:
+            url = reverse('admin:piece-download-zip', args=[obj.pk])
+            return format_html(
+                '<a class="button" href="{}" style="background: #417690; color: white; padding: 10px 15px; border-radius: 4px; text-decoration: none;">'
+                '📥 Alle Stimmen als ZIP herunterladen'
+                '</a>',
+                url
+            )
+        return "Speichere das Stück zuerst."
+    download_button.short_description = "Export PDFs als ZIP"
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path(
-                '<int:piece_id>/change/split/',
-                self.admin_site.admin_view(self.split_view),
-                name='piece-split',
-            ),
+            path('<int:piece_id>/change/split/', self.admin_site.admin_view(self.split_view), name='piece-split'),
             path('import-csv/', self.admin_site.admin_view(piece_csv_import), name='piece_csv_import'),
+            path('<int:object_id>/download-zip/', self.admin_site.admin_view(self.download_single_piece_zip), name='piece-download-zip'),
         ]
         return custom_urls + urls
 
-    # Button in the list view
-    def split_pdf_button(self, obj):
-        url = reverse('admin:piece-split', args=[obj.pk])
-        return format_html(
-            '<a class="button" href="{}" style="background-color: #417690; color: white;">PDF Splitten</a>',
-            url
-        )
-    split_pdf_button.short_description = 'Aktionen'
+    def download_single_piece_zip(self, request, object_id):
+        # Nutzt die korrigierte Action für das gefundene Stück
+        return download_parts_as_zip(self, request, Piece.objects.filter(pk=object_id))
 
-    # A link to jump directly to individual parts
+    def get_status_display(self, obj):
+        return obj.current_status['label']
+    get_status_display.short_description = "Status"
+
+    def display_genres(self, obj):
+        return ", ".join([genre.name for genre in obj.genres.all()])
+    display_genres.short_description = 'Genres'
+
     def view_parts_link(self, obj):
         count = obj.parts.count()
         url = reverse('admin:scorelib_part_changelist') + f'?piece__id__exact={obj.pk}'
@@ -379,6 +444,7 @@ class PieceAdmin(admin.ModelAdmin):
             'opts': self.model._meta, # Wichtig für die Admin-Breadcrumbs
         }
         return render(request, 'admin/split_pdf_form.html', context)
+    
 
 @admin.register(Concert)
 class ConcertAdmin(admin.ModelAdmin):
@@ -639,3 +705,4 @@ class SiteSettingsAdmin(admin.ModelAdmin):
         # Use the admin URL name to avoid duplicating app labels in the path
         url = reverse('admin:scorelib_sitesettings_change', args=[obj.pk])
         return redirect(url)
+
