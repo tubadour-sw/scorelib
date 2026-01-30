@@ -273,3 +273,15 @@ class AudioRecording(models.Model):
 
     def __str__(self):
         return f"{self.piece.title} @ {self.concert.title}"
+    
+class ExternalLink(models.Model):
+    piece = models.ForeignKey(Piece, on_delete=models.CASCADE, related_name='external_links')
+    title = models.CharField(max_length=100, verbose_name="Beschreibung", help_text="z.B. 'Hörbeispiel' oder 'YouTube Video'")
+    url = models.URLField(verbose_name="Link (URL)")
+
+    class Meta:
+        verbose_name = "Externer Link"
+        verbose_name_plural = "Externe Links"
+
+    def __str__(self):
+        return f"{self.title} ({self.piece.title})"

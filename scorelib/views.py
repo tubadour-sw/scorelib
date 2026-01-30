@@ -240,10 +240,15 @@ def concert_detail_view(request, concert_id=None):
             if profile and (profile.has_full_archive_access or piece.is_active_for_download()):
                 all_parts = piece.parts.all()
                 user_parts = [p for p in all_parts if profile.can_view_part(p.part_name)]
+
+            has_youtube = piece.external_links.filter(
+                Q(url__icontains='youtube.com') | Q(url__icontains='youtu.be')
+            ).exists()
             
             program_data.append({
                 'piece': piece,
                 'user_parts': user_parts,
+                'has_youtube': has_youtube,
                 'recordings': piece.audiorecording_set.filter(concert=next_concert)
             })
             

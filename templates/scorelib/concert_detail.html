@@ -29,7 +29,13 @@
                                 <h5 class="mb-1">{{ forloop.counter }}. 
                                     <a href="{% url 'scorelib_piece_detail' item.piece.id %}" class="text-decoration-none fw-bold">
                                         {{ item.piece.title }}
-										{% if item.piece.audiorecording_set.all %} ▶️ {% endif %}
+                                        {% if item.piece.audiorecording_set.all %} 
+                                            <i class="bi bi-play-circle-fill text-primary" style="font-size: 1.1rem;"></i>
+                                        {% endif %}
+
+                                        {% if item.has_youtube %} 
+                                            <i class="bi bi-youtube text-danger" style="font-size: 1.1rem;"></i> 
+                                        {% endif %}
                                     </a>
                                 </h5>
                                 <small class="text-muted"><strong>{{ item.piece.archive_label }}</strong></small>

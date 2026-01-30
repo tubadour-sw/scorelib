@@ -37,7 +37,8 @@ from django.contrib.auth.models import User
 # Deine Modelle und Tools
 from .models import (
     LoanRecord, Piece, Part, Composer, Arranger, Publisher, InstrumentGroup,
-    Genre, Venue, Concert, ProgramItem, AudioRecording, MusicianProfile, SiteSettings
+    Genre, Venue, Concert, ProgramItem, AudioRecording, MusicianProfile, 
+    SiteSettings, ExternalLink
 )
 from .forms import PartSplitFormSet
 from .utils import process_pdf_split
@@ -208,6 +209,10 @@ class ProgramItemInline(admin.TabularInline):
     extra = 3
     autocomplete_fields = ['piece'] # Search for pieces within the concert view
 
+class ExternalLinkInline(admin.TabularInline):
+    model = ExternalLink
+    extra = 1 
+
 # --- ADMIN CLASSES ---
 
 @admin.register(Composer)
@@ -309,7 +314,7 @@ class PublisherAdmin(admin.ModelAdmin):
 @admin.register(Piece)
 class PieceAdmin(admin.ModelAdmin):
     # Inlines und Auswahl-Hilfen
-    inlines = [LoanRecordInline, PartInline]
+    inlines = [ExternalLinkInline, LoanRecordInline, PartInline, ]
     filter_horizontal = ('genres',)
     autocomplete_fields = ('composer', 'arranger', 'publisher')
     

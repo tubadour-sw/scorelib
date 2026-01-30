@@ -55,6 +55,28 @@
             </div>
             {% endif %}
 
+            {% if piece.external_links.all %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white fw-bold">
+                    <i class="bi bi-link-45deg"></i> Weiterführende Links
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for link in piece.external_links.all %}
+                        <li class="list-group-item">
+                            <a href="{{ link.url }}" target="_blank" class="text-decoration-none">
+                                {% if "youtube.com" in link.url or "youtu.be" in link.url %}
+                                    <i class="bi bi-youtube text-danger"></i>
+                                {% else %}
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                {% endif %}
+                                {{ link.title }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
             <div class="card shadow-sm">
                 <div class="card-header bg-info text-dark fw-bold">Konzert-Historie</div>
                 <div class="card-body p-0">
