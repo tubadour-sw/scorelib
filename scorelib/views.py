@@ -106,6 +106,8 @@ def scorelib_index(request):
         order_field = 'publisher__name'
     elif f_sort == 'difficulty':
         order_field = 'difficulty'
+    elif f_sort == 'label':
+        order_field = 'archive_label'
     else:
         order_field = 'title'
     
