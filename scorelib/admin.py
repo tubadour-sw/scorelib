@@ -29,12 +29,12 @@ from difflib import SequenceMatcher
 import json
 import io
 import zipfile
+import csv
 
 # Authentifizierung
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 
-# Deine Modelle und Tools
 from .models import (
     LoanRecord, Piece, Part, Composer, Arranger, Publisher, InstrumentGroup,
     Genre, Venue, Concert, ProgramItem, AudioRecording, MusicianProfile, 
@@ -170,6 +170,45 @@ def download_parts_as_zip(modeladmin, request, queryset):
     buffer.seek(0)
     response = HttpResponse(buffer.read(), content_type='application/zip')
     response['Content-Disposition'] = 'attachment; filename="noten_export.zip"'
+    return response
+
+@admin.action(description="Ausgewählte Stücke als CSV exportieren")
+def export_pieces_csv(modeladmin, request, queryset):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="notenbank_export.csv"'
+    
+    # utf-8-sig für Excel-Kompatibilität (Umlaute)
+    # quoting=csv.QUOTE_MINIMAL sorgt dafür, dass Felder mit Semikolons in " " gesetzt werden
+    writer = csv.writer(response, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+    
+    # Header-Zeile (angepasst an dein Import-Format ohne is_owned_by_orchestra)
+    writer.writerow([
+        'Label', 'Title', 'Composer', 'Arranger', 'Publisher', 
+        'Difficulty', 'Duration', 'Genres', 'Concerts'
+    ])
+    
+    # Queryset optimieren, um Datenbankabfragen in der Schleife zu minimieren (prefetch_related)
+    queryset = queryset.prefetch_related('genres', 'concerts')
+    
+    for piece in queryset:
+        # Genres als kommagetrennte Liste
+        genres_list = ", ".join([g.name for g in piece.genres.all()])
+        
+        # Konzerte als kommagetrennte Liste (Titel und Jahr)
+        concerts_list = ", ".join([c.title for c in piece.concerts.all()])
+        
+        writer.writerow([
+            piece.archive_label,
+            piece.title,
+            piece.composer.name if piece.composer else '',
+            piece.arranger.name if piece.arranger else '',
+            piece.publisher.name if piece.publisher else '',
+            piece.difficulty,
+            piece.duration,
+            genres_list,
+            concerts_list
+        ])
+    
     return response
 
 # --- INLINES ---
@@ -340,7 +379,7 @@ class PieceAdmin(admin.ModelAdmin):
     search_fields = ('title', 'archive_label', 'composer__name', 'arranger__name', 'additional_info')
     list_editable = ('archive_label',)
     list_display_links = ('title',)
-    actions = [download_parts_as_zip]
+    actions = [download_parts_as_zip, export_pieces_csv]
 
     def get_status_display(self, obj):
         return obj.current_status['label']
