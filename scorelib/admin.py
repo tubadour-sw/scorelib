@@ -138,19 +138,38 @@ def get_generic_merge_response(admin_obj, request, queryset, title, action_name)
 
 @admin.action(description="Ausgewählte Stücke als ZIP herunterladen")
 def download_parts_as_zip(modeladmin, request, queryset):
+    # Limit in Bytes (z.B. 50 MB)
+    MAX_SIZE_MB = 250
+    MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
+    
+    total_size = 0
+     # First check total size of PDFs
+    for piece in queryset:
+        for part in piece.parts.all():
+            if part.pdf_file:
+                try:
+                    total_size += part.pdf_file.size
+                except (FileNotFoundError, AttributeError):
+                    continue
+
+    if total_size > MAX_SIZE_BYTES:
+        size_actual = total_size / (1024 * 1024)
+        modeladmin.message_user(
+            request, 
+            f"Download abgebrochen: Die Dateien sind insgesamt {size_actual:.1f} MB groß (Limit: {MAX_SIZE_MB} MB). "
+            "Bitte wählen Sie weniger Stücke aus.",
+            level=messages.ERROR
+        )
+        return HttpResponseRedirect(request.get_full_path())
+    
     buffer = io.BytesIO()
     try:
         with zipfile.ZipFile(buffer, 'w') as zip_file:
-            max_files = 500  # Limit to avoid huge downloads
-            file_count = 0
             for piece in queryset:
-                if file_count >= max_files:
-                    break
                 parts = piece.parts.all()
                 for part in parts:
                     if part.pdf_file: 
-                        if file_count >= max_files:
-                            break
+
                         file_path = part.pdf_file.path
 
                         # Generate filename (clean special characters/spaces)
