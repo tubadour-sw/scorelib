@@ -989,7 +989,6 @@ def process_single_audio(request):
     piece = get_object_or_404(Piece, pk=piece_id)
     concert = get_object_or_404(Concert, pk=concert_id)
 
-    # Pfade konsolidieren (exakt wie im Model AudioRecording)
     upload_subfolder = 'concerts/audio'
     safe_piece = "".join(x for x in piece.title if x.isalnum() or x in "._- ")
     safe_concert = "".join(x for x in concert.title if x.isalnum() or x in "._- ") 
@@ -1012,7 +1011,7 @@ def process_single_audio(request):
 
         # 2. ffmpeg Aufruf mit allen Metadaten (inkl. Kommentar)
         cmd = [
-            'ffmpeg', '-threads', '1' '-i', temp_path,
+            'ffmpeg', '-threads', '1', '-i', temp_path,
             '-codec:a', 'libmp3lame', '-qscale:a', '6', # Gute Kompression
             '-metadata', f'title={piece.title}',
             '-metadata', f'artist={site_settings.band_name}',
