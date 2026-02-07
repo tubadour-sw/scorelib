@@ -1012,7 +1012,7 @@ def process_single_audio(request):
 
         # 2. ffmpeg Aufruf mit allen Metadaten (inkl. Kommentar)
         cmd = [
-            'ffmpeg', '-i', temp_path,
+            'ffmpeg', '-threads', '1' '-i', temp_path,
             '-codec:a', 'libmp3lame', '-qscale:a', '6', # Gute Kompression
             '-metadata', f'title={piece.title}',
             '-metadata', f'artist={site_settings.band_name}',
@@ -1052,9 +1052,17 @@ def audio_ripping_page(request, concert_id):
     # we want to show all pieces in the concert's program, sorted by their order in the program
     program_items = ProgramItem.objects.filter(concert=concert).order_by('order')
     
+    recordings = AudioRecording.objects.filter(concert=concert)
+    rec_mapping = {rec.piece_id: rec for rec in recordings}
+    
+    # attach existing recordings to program items if they exist, for display in the template
+    for item in program_items:
+        item.existing_recording = rec_mapping.get(item.piece.id)
+    
     context = {
         'concert': concert,
         'program_items': program_items,
         'title': f'Audio-CD Rippen: {concert.title}'
     }
+
     return render(request, 'admin/audio_ripping.html', context)

@@ -15,21 +15,43 @@
             </thead>
             <tbody>
                 {% for item in program_items %}
-                <tr id="row-{{ item.piece.id }}" style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 10px;"><strong>{{ item.order }}. {{ item.piece.title }}</strong></td>
-                    <td style="padding: 10px;">
-                        <input type="file" class="audio-input" 
-                               data-piece-id="{{ item.piece.id }}" 
-                               data-order="{{ item.order }}"
-                               accept=".wav,.cda,.mp3">
-                    </td>
-                    <td style="padding: 10px;">
-                        <input type="text" class="description-input" 
-                               placeholder="z.B. Live-Aufnahme" 
-                               style="width: 90%;">
-                    </td>
-                    <td class="status-cell" style="padding: 10px; font-weight: bold;">Bereit</td>
-                </tr>
+                    <tr id="row-{{ item.piece.id }}" 
+                        class="{% if item.existing_recording %}is-existing{% endif %}" 
+                        style="border-bottom: 1px solid #eee; {% if item.existing_recording %}background-color: #f4f4f4; color: #666;{% endif %}">
+                        
+                        <td style="padding: 10px;">
+                            <strong>{{ item.order }}. {{ item.piece.title }}</strong>
+                            {% if item.existing_recording %}
+                                <div style="font-size: 0.8em; color: #2c5282; margin-top: 4px;">
+                                    📁 {{ item.existing_recording.audio_file.name }}<br>
+                                    📝 <em>{{ item.existing_recording.description|default:"Keine Beschreibung" }}</em>
+                                </div>
+                            {% endif %}
+                        </td>
+                        
+                        <td style="padding: 10px;">
+                            {% if item.existing_recording %}
+                                <span style="color: #2b6cb0;">✔ Vorhanden</span>
+                                <input type="file" class="audio-input" style="display:none;" data-piece-id="{{ item.piece.id }}">
+                            {% else %}
+                                <input type="file" class="audio-input" 
+                                    data-piece-id="{{ item.piece.id }}" 
+                                    data-order="{{ item.order }}"
+                                    accept=".wav,.mp3">
+                            {% endif %}
+                        </td>
+                        
+                        <td style="padding: 10px;">
+                            <input type="text" class="description-input" 
+                                value="{{ item.existing_recording.description|default:'' }}"
+                                {% if item.existing_recording %}disabled{% endif %}
+                                style="width: 90%;">
+                        </td>
+                        
+                        <td class="status-cell" style="padding: 10px;">
+                            {% if item.existing_recording %}Überspringen{% else %}Wartet...{% endif %}
+                        </td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>
