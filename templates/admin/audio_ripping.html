@@ -96,10 +96,18 @@ document.getElementById('start-btn').onclick = async function() {
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 Minuten Timeout
+
             const response = await fetch('{% url "process_single_audio" %}', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) throw new Error(`Server-Antwort: ${response.status}`);
+            
             const result = await response.json();
             
             if (result.status === 'success') {
@@ -113,8 +121,12 @@ document.getElementById('start-btn').onclick = async function() {
                 row.style.backgroundColor = "#f8d7da";
             }
         } catch (e) {
-            statusCell.innerHTML = "❌ Netzwerkfehler";
+            statusCell.innerHTML = "❌ Abbruch: " + e.message;
             row.style.backgroundColor = "#f8d7da";
+            console.error(e);
+            btn.disabled = false;
+            btn.innerHTML = "⚠️ Fehler aufgetreten - Erneut versuchen?";
+            return; 
         }
     }
     
