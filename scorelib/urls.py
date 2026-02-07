@@ -25,4 +25,9 @@ urlpatterns = [
     # Merge suggestions workflow
     path('suggest-merges/<str:model_name>/', views.suggest_merges_page, name='suggest_merges_page'),
     path('merge-cluster/<str:model_name>/', views.merge_cluster_confirm, name='merge_cluster_confirm'),
+
+    # audio ripping workflow
+    path('admin/audio-ripping/<int:concert_id>/', views.audio_ripping_page, name='audio_ripping_page'),
+    path('admin/api/process-audio/', views.process_single_audio, name='process_single_audio'),
+    
 ]

@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+from urllib import request
 from django.contrib import admin, messages
 from django.urls import path, reverse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -518,8 +519,18 @@ class ConcertAdmin(admin.ModelAdmin):
     search_fields = ['title', 'subtitle']
     autocomplete_fields = ('venue',)  # Enable searchable venue dropdown
     inlines = [ProgramItemInline]
-    
+    readonly_fields = ('rip_audio_link',)
     actions = ['merge_concerts_action']
+
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'subtitle', 'date', 'venue', 'poster')
+        }),
+        ('Audio-Verarbeitung', {
+            'fields': ('rip_audio_link',),
+            'description': 'Hier können Sie Audio-Aufnahmen für dieses Konzert verarbeiten.'
+        }),
+    )
 
     def merge_concerts_action(self, request, queryset):
         if 'apply' in request.POST:
@@ -544,6 +555,22 @@ class ConcertAdmin(admin.ModelAdmin):
  
     merge_concerts_action.short_description = "Ausgewählte Concerts zusammenführen"
 
+    def rip_audio_link(self, obj):
+        if not obj.pk: return "-" # in case the concert is not saved yet
+        
+        settings = SiteSettings.get_solo() 
+        
+        if settings and settings.audio_ripping_enabled:
+            url = reverse('audio_ripping_page', args=[obj.pk])
+            return format_html(
+                '<a class="button" href="{}" style="background-color: #417690; color: white;">'
+                '💿 CD-Tracks für dieses Konzert hochladen</a>', 
+                url
+            )
+        return "Feature in den Site-Settings deaktiviert oder ffmpeg fehlt."
+    
+    rip_audio_link.short_description = "Audio-Verarbeitung"
+   
 @admin.register(InstrumentGroup)
 class InstrumentGroupAdmin(admin.ModelAdmin):
     list_display = ('name', 'filter_strings')

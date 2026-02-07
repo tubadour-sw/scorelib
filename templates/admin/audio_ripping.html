@@ -1,0 +1,104 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div id="content-main">
+    <p>Wählen Sie für jedes Stück die entsprechende Quelldatei aus und ergänzen Sie bei Bedarf eine Beschreibung.</p>
+
+    <div class="module">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="text-align: left; background: #f8f8f8;">
+                    <th style="padding: 10px;">Nr. / Titel</th>
+                    <th style="padding: 10px;">Audio-Datei (WAV/CDA)</th>
+                    <th style="padding: 10px;">Beschreibung</th>
+                    <th style="padding: 10px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in program_items %}
+                <tr id="row-{{ item.piece.id }}" style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px;"><strong>{{ item.order }}. {{ item.piece.title }}</strong></td>
+                    <td style="padding: 10px;">
+                        <input type="file" class="audio-input" 
+                               data-piece-id="{{ item.piece.id }}" 
+                               data-order="{{ item.order }}"
+                               accept=".wav,.cda,.mp3">
+                    </td>
+                    <td style="padding: 10px;">
+                        <input type="text" class="description-input" 
+                               placeholder="z.B. Live-Aufnahme" 
+                               style="width: 90%;">
+                    </td>
+                    <td class="status-cell" style="padding: 10px; font-weight: bold;">Bereit</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="submit-row" style="margin-top: 20px;">
+            <button type="button" id="start-btn" class="default" style="padding: 10px 20px; cursor: pointer;">
+                🚀 Konvertierung & Upload starten
+            </button>
+            <a href="{{ request.META.HTTP_REFERER }}" class="closelink">Abbrechen</a>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+document.getElementById('start-btn').onclick = async function() {
+    const inputs = document.querySelectorAll('.audio-input');
+    const btn = this;
+    
+    if (!confirm("Die ausgewählten Dateien werden nacheinander konvertiert und hochgeladen. Fortfahren?")) return;
+
+    btn.disabled = true;
+    btn.innerHTML = "⌛ Verarbeitung läuft...";
+
+    for (const input of inputs) {
+        if (input.files.length === 0) continue;
+
+        const row = input.closest('tr');
+        const statusCell = row.querySelector('.status-cell');
+        const descInput = row.querySelector('.description-input');
+        
+        statusCell.innerHTML = "⏳ Lädt hoch & konvertiert...";
+        row.style.backgroundColor = "#fff9e6";
+
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+        formData.append('piece_id', input.dataset.pieceId);
+        formData.append('concert_id', "{{ concert.id }}");
+        formData.append('order_num', input.dataset.order);
+        formData.append('description', descInput.value);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        try {
+            const response = await fetch('{% url "process_single_audio" %}', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                statusCell.innerHTML = "✅ Abgeschlossen";
+                row.style.backgroundColor = "#d4edda";
+                // Deaktiviere Inputs nach Erfolg
+                input.disabled = true;
+                descInput.disabled = true;
+            } else {
+                statusCell.innerHTML = "❌ Fehler: " + result.message;
+                row.style.backgroundColor = "#f8d7da";
+            }
+        } catch (e) {
+            statusCell.innerHTML = "❌ Netzwerkfehler";
+            row.style.backgroundColor = "#f8d7da";
+        }
+    }
+    
+    btn.innerHTML = "✅ Alle Aufgaben erledigt";
+    btn.classList.remove('default');
+    alert("Der Vorgang wurde abgeschlossen.");
+};
+</script>
+{% endblock %}
