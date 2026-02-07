@@ -109,10 +109,12 @@ class SiteSettings(models.Model):
     Use this model to configure values that differ per orchestra/band,
     such as the site title, favicon and the legal/imprint text.
     """
+    band_name = models.CharField(max_length=200, default="Mein Orchester") 
     site_title = models.CharField(max_length=200, default='SKG Notenbank')
     favicon = models.ImageField(upload_to='site/', blank=True, null=True)
     legal_text = models.TextField(blank=True, null=True, help_text='HTML or plain-text legal / imprint content')
-
+    audio_ripping_enabled = models.BooleanField(default=False, verbose_name="Audio-Ripping Feature aktivieren")
+    
     class Meta:
         verbose_name = 'Site Settings'
 

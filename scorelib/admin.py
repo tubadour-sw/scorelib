@@ -30,6 +30,8 @@ import json
 import io
 import zipfile
 import csv
+import subprocess
+import shutil
 
 # Authentifizierung
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -756,7 +758,13 @@ class VenueAdmin(admin.ModelAdmin):
 
 @admin.register(SiteSettings)
 class SiteSettingsAdmin(admin.ModelAdmin):
-    list_display = ('site_title',)
+    list_display = ('site_title', 'audio_ripping_enabled')
+    readonly_fields = ('ffmpeg_status_display',)
+
+    fieldsets = (
+        (None, {'fields': ('site_title', 'band_name', 'legal_text')}),
+        ('Audio-Ripping', {'fields': ('audio_ripping_enabled', 'ffmpeg_status_display')}),
+    )
 
     def has_add_permission(self, request):
         # Allow adding only if there's no settings instance yet
@@ -769,3 +777,17 @@ class SiteSettingsAdmin(admin.ModelAdmin):
         url = reverse('admin:scorelib_sitesettings_change', args=[obj.pk])
         return redirect(url)
 
+    def ffmpeg_status_display(self, obj):
+        ffmpeg_path = shutil.which('ffmpeg')
+        if ffmpeg_path:
+            return format_html('<span style="color: green;">✔ ffmpeg gefunden: {}</span>', ffmpeg_path)
+        return format_html('<span style="color: red;">✘ ffmpeg nicht im Systempfad gefunden.</span>')
+    
+    ffmpeg_status_display.short_description = "System-Check"
+
+    # Avoid manual enabling if ffmpeg is not available
+    def save_model(self, request, obj, form, change):
+        if obj.audio_ripping_enabled and not shutil.which('ffmpeg'):
+            obj.audio_ripping_enabled = False
+            messages.error(request, "Feature konnte nicht aktiviert werden: ffmpeg wurde auf diesem Server nicht gefunden.")
+        super().save_model(request, obj, form, change)
