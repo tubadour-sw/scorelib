@@ -34,6 +34,7 @@ from django.http import FileResponse, JsonResponse
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
+from django.conf import settings
 
 
 # Importiere deine Modelle
@@ -968,100 +969,62 @@ def merge_cluster_confirm(request, model_name):
     return render(request, 'admin/merge_cluster_confirm.html', context)
 
 
-@login_required
 @require_POST
+@login_required
 def process_single_audio(request):
-    from .models import SiteSettings, Piece, Concert, AudioRecording
-    import subprocess
-    import os
-    from django.conf import settings
-
-    site_settings = SiteSettings.objects.first()
-    if not site_settings or not site_settings.audio_ripping_enabled:
-        return JsonResponse({'error': 'Feature deaktiviert'}, status=403)
-
-    piece_id = request.POST.get('piece_id')
-    concert_id = request.POST.get('concert_id')
-    order_num = request.POST.get('order_num', '')
-    description = request.POST.get('description', '')
-    audio_file = request.FILES.get('file')
-
-    piece = get_object_or_404(Piece, pk=piece_id)
-    concert = get_object_or_404(Concert, pk=concert_id)
-
-    upload_subfolder = 'concerts/audio'
-    safe_piece = "".join(x for x in piece.title if x.isalnum() or x in "._- ")
-    safe_concert = "".join(x for x in concert.title if x.isalnum() or x in "._- ") 
-    output_name = f"{safe_concert}_{safe_piece}__c{concert.id}_p{piece.id}.mp3".replace(' ', '_')
-    output_rel_path = os.path.join(upload_subfolder, output_name)
-    output_full_path = os.path.join(settings.MEDIA_ROOT, output_rel_path)
-    
-    # Temporärer Pfad für die Rohdatei
-    temp_path = os.path.join(settings.MEDIA_ROOT, 'temp', f"rip_{audio_file.name}")
-
-    # Verzeichnisse sicherstellen
-    os.makedirs(os.path.dirname(temp_path), exist_ok=True)
-    os.makedirs(os.path.dirname(output_full_path), exist_ok=True)
-
     try:
-        # 1. Originaldatei (WAV/CDA) temporär speichern
+        piece_id = request.POST.get('piece_id')
+        concert_id = request.POST.get('concert_id')
+        description = request.POST.get('description', '')
+        audio_file = request.FILES.get('audio_file')
+ 
+        piece = get_object_or_404(Piece, pk=piece_id)
+        concert = get_object_or_404(Concert, pk=concert_id)
+
+        # step 1: store uploaded file temporarily
+        temp_filename = f"rip_T{piece_id}_{audio_file.name}"
+        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, temp_filename)
+
         with open(temp_path, 'wb+') as f:
             for chunk in audio_file.chunks():
                 f.write(chunk)
 
-        # 2. ffmpeg Aufruf mit allen Metadaten (inkl. Kommentar)
-        cmd = [
-            'ffmpeg', '-threads', '1', '-i', temp_path,
-            '-codec:a', 'libmp3lame', '-qscale:a', '6', # Gute Kompression
-            '-metadata', f'title={piece.title}',
-            '-metadata', f'artist={site_settings.band_name}',
-            '-metadata', f'album={concert.title}',
-            '-metadata', f'date={concert.date.year if concert.date else ""}',
-            '-metadata', f'track={order_num}',
-            '-metadata', f'comment={description}', # Beschreibung in MP3-Tag
-            output_full_path, '-y'
-        ]
-        
-        subprocess.run(cmd, check=True, capture_output=True)
-
-        # 3. Datenbank-Eintrag erstellen oder aktualisieren
-        recording, created = AudioRecording.objects.update_or_create(
-            piece=piece, 
+        # step 2: create or update AudioRecording entry with temp file path
+        recording = AudioRecording.objects.create(
+            piece=piece,
             concert=concert,
-            defaults={
-                'audio_file': output_rel_path,
-                'description': description
-            }
+            description=description,
+            audio_file=os.path.join('temp', temp_filename)
         )
+
+        # step 3: process the file (e.g. convert to mp3, add metadata) 
+        # and move to final location. This will be done by the signaling mechanism 
+        # so we only need to report success.
 
         return JsonResponse({'status': 'success', 'piece': piece.title})
 
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
-# views.py
 
 @login_required
 def audio_ripping_page(request, concert_id):
     """Display the audio ripping interface for a specific concert, showing all pieces in the program."""
     concert = get_object_or_404(Concert, pk=concert_id)
-    # we want to show all pieces in the concert's program, sorted by their order in the program
     program_items = ProgramItem.objects.filter(concert=concert).order_by('order')
     
-    recordings = AudioRecording.objects.filter(concert=concert)
-    rec_mapping = {rec.piece_id: rec for rec in recordings}
-    
-    # attach existing recordings to program items if they exist, for display in the template
+    # load all existing recordings for this concert in one query and map them by piece ID for easy access
     for item in program_items:
-        item.existing_recording = rec_mapping.get(item.piece.id)
+        item.existing_recordings = AudioRecording.objects.filter(
+            concert=concert, piece=item.piece
+        )
     
     context = {
         'concert': concert,
         'program_items': program_items,
-        'title': f'Audio-CD Rippen: {concert.title}'
+        'title': f'CD-Tracks zuordnen: {concert.title}'
     }
-
     return render(request, 'admin/audio_ripping.html', context)

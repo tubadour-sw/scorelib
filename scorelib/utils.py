@@ -18,9 +18,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import io
 import re
+import os
+import subprocess
+import shutil
 from pypdf import PdfReader, PdfWriter
 from django.core.files.base import ContentFile
-from .models import Part
+from .models import Part, SiteSettings
+from django.conf import settings
+from django.utils.text import slugify
 
 def parse_page_ranges(range_string):
     """
@@ -112,3 +117,74 @@ def split_pdf_into_parts(piece, source_pdf_file, split_data):
         filename = f"{piece.title}_{item['name']}.pdf".replace(" ", "_")
         new_part.pdf_file.save(filename, ContentFile(buffer.getvalue()), save=False)
         new_part.save()
+
+
+
+def process_audio_file_logic(recording_obj):
+    """
+    Centralized logic for processing an uploaded audio file:
+    - If FFmpeg is available and audio ripping is enabled, convert to MP3 with metadata
+    - Otherwise, just rename/move the file to a consistent location and naming scheme.
+    This function can be called both from the audio ripping workflow and from any future direct uploads of audio files.
+    """
+    if not recording_obj.audio_file or not os.path.exists(recording_obj.audio_file.path):
+        return
+
+    site_settings = SiteSettings.objects.first()
+    
+    old_full_path = recording_obj.audio_file.path
+    ext = os.path.splitext(old_full_path)[1].lower()
+    
+    # generate a safe filename based on concert title, piece title and description (for distinguishing movements/sätze)
+    safe_piece = "".join(x for x in recording_obj.piece.title if x.isalnum() or x in "._- ")
+    safe_concert = "".join(x for x in recording_obj.concert.title if x.isalnum() or x in "._- ") 
+    # include description but only keep safe characters and limit length to avoid filesystem issues
+    safe_desc = "".join(x for x in recording_obj.description if x.isalnum() or x in "._- ")[:20]
+    
+    base_name = f"{safe_concert}_{safe_piece}_{safe_desc}_c{recording_obj.concert.id}_r{recording_obj.id}"
+    
+    # case 1: ffmpeg is available and audio ripping is enabled -> convert to MP3 with metadata
+    if site_settings and site_settings.audio_ripping_enabled and shutil.which('ffmpeg'):
+        new_filename = f"{base_name}.mp3"
+        new_rel_path = os.path.join('concerts/audio', new_filename)
+        new_full_path = os.path.join(settings.MEDIA_ROOT, new_rel_path)
+
+        if old_full_path == new_full_path and ext == '.mp3':
+            return # Bereits korrekt verarbeitet
+
+        cmd = [
+            'ffmpeg', '-threads', '1', '-i', old_full_path,
+            '-codec:a', 'libmp3lame', '-qscale:a', '6', # good compression
+            '-metadata', f'title={recording_obj.piece.title}',
+            '-metadata', f'artist={site_settings.band_name}',
+            '-metadata', f'album={recording_obj.concert.title}',
+            '-metadata', f'date={recording_obj.concert.date.year if recording_obj.concert.date else ""}',
+            '-metadata', f'comment={recording_obj.description}', # description in comment tag
+            new_full_path, '-y'
+        ]
+        
+        try:
+            subprocess.run(cmd, check=True, capture_output=True)
+            if old_full_path != new_full_path:
+                os.remove(old_full_path)
+            
+            # update model with new file path and name without signaling
+            recording_obj.audio_file.name = new_rel_path
+            recording_obj.save(update_fields=['audio_file'])
+        except Exception as e:
+            print(f"FFmpeg fehlgeschlagen, Fallback zu Rename: {e}")
+            rename_only(recording_obj, old_full_path, base_name, ext)
+    else:
+        # case 2: ffmpeg not available or ripping disabled -> just rename/move the file to a consistent location
+        rename_only(recording_obj, old_full_path, base_name, ext)
+
+def rename_only(recording_obj, old_full_path, base_name, ext):
+    new_filename = f"{base_name}{ext}"
+    new_rel_path = os.path.join('concerts/audio', new_filename)
+    new_full_path = os.path.join(settings.MEDIA_ROOT, new_rel_path)
+
+    if old_full_path != new_full_path:
+        os.makedirs(os.path.dirname(new_full_path), exist_ok=True)
+        shutil.move(old_full_path, new_full_path)
+        recording_obj.audio_file.name = new_rel_path
+        recording_obj.save(update_fields=['audio_file'])

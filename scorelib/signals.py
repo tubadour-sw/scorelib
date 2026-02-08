@@ -19,20 +19,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import User
-from .models import MusicianProfile
+from .models import MusicianProfile, AudioRecording
+from .utils import process_audio_file_logic
 
-#@receiver(post_save, sender=User)
-#def save_user_profile(sender, instance, **kwargs):
-#    if hasattr(instance, 'profile'):
-#        instance.profile.save()
-		
 
 @receiver(post_save, sender=User)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
     if created:
-        # NUR wenn der User ganz neu ist, erstellen wir das Profil
+        # only create profile on user creation, not on every save (e.g. password change)
         MusicianProfile.objects.get_or_create(user=instance)
     else:
         # On updates (e.g. password change) just ensure it exists
         if hasattr(instance, 'profile'):
             instance.profile.save()
+
+
+@receiver(post_save, sender=AudioRecording)
+def handle_audio_upload_signal(sender, instance, created, update_fields, **kwargs):
+    # WICHTIG: Wenn nur 'audio_file' geupdatet wurde, kommen wir aus der Utils-Funktion.
+    # Wir brechen hier ab, um eine Endlosschleife zu verhindern.
+    if update_fields and 'audio_file' in update_fields:
+        return
+    
+    # Verarbeitung starten
+    process_audio_file_logic(instance)

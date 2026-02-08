@@ -2,57 +2,40 @@
 {% block content %}
 <div id="content-main">
     <p>Wählen Sie für jedes Stück die entsprechende Quelldatei aus und ergänzen Sie bei Bedarf eine Beschreibung.</p>
+    <p>Die Dateien sollten im WAV- oder MP3-Format vorliegen.</p>
+    <p>Die Dateien werden nacheinander hochgeladen, in MP3 konvertiert und mit Metadaten versehen. Bitte warten Sie nach dem Klick auf "Starten" mit weiteren Aktionen, bis der Vorgang abgeschlossen ist.</p>
+    <p>Hinweis: Bereits vorhandene Aufnahmen für ein Stück werden angezeigt. Wenn Sie weitere Sätze einer Suite hinzufügen möchten, verwenden Sie den Button "+ Weiterer Satz".</p>
+    <p>Die Konvertierung erfolgt mit FFmpeg (sofern auf dem Server installiert). Sollte es zu Problemen kommen, werden Fehlermeldungen angezeigt und Sie können den Vorgang erneut starten.</p>
+    <p>Nach Abschluss werden die Aufnahmen automatisch dem jeweiligen Stück zugeordnet.
+    </p>
 
     <div class="module">
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="text-align: left; background: #f8f8f8;">
                     <th style="padding: 10px;">Nr. / Titel</th>
-                    <th style="padding: 10px;">Audio-Datei (WAV/CDA)</th>
+                    <th style="padding: 10px;">Audio-Datei (WAV/MP3)</th>
                     <th style="padding: 10px;">Beschreibung</th>
                     <th style="padding: 10px;">Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in program_items %}
-                    <tr id="row-{{ item.piece.id }}" 
-                        class="{% if item.existing_recording %}is-existing{% endif %}" 
-                        style="border-bottom: 1px solid #eee; {% if item.existing_recording %}background-color: #f4f4f4; color: #666;{% endif %}">
-                        
-                        <td style="padding: 10px;">
+                    <tr id="row-{{ item.piece.id }}">
+                        <td>
                             <strong>{{ item.order }}. {{ item.piece.title }}</strong>
-                            {% if item.existing_recording %}
-                                <div style="font-size: 0.8em; color: #2c5282; margin-top: 4px;">
-                                    📁 {{ item.existing_recording.audio_file.name }}<br>
-                                    📝 <em>{{ item.existing_recording.description|default:"Keine Beschreibung" }}</em>
-                                </div>
-                            {% endif %}
+                            <div class="existing-list" style="font-size: 0.8em; color: #666;">
+                                {% for rec in item.existing_recordings.all %}
+                                    <div>✔ {{ rec.description|default:"Aufnahme" }}</div>
+                                {% endfor %}
+                            </div>
+                            <button type="button" onclick="addSuiteRow('{{ item.piece.id }}')" style="margin-top:5px; font-size:10px;">+ Weiterer Satz</button>
                         </td>
-                        
-                        <td style="padding: 10px;">
-                            {% if item.existing_recording %}
-                                <span style="color: #2b6cb0;">✔ Vorhanden</span>
-                                <input type="file" class="audio-input" style="display:none;" data-piece-id="{{ item.piece.id }}">
-                            {% else %}
-                                <input type="file" class="audio-input" 
-                                    data-piece-id="{{ item.piece.id }}" 
-                                    data-order="{{ item.order }}"
-                                    accept=".wav,.mp3">
-                            {% endif %}
-                        </td>
-                        
-                        <td style="padding: 10px;">
-                            <input type="text" class="description-input" 
-                                value="{{ item.existing_recording.description|default:'' }}"
-                                {% if item.existing_recording %}disabled{% endif %}
-                                style="width: 90%;">
-                        </td>
-                        
-                        <td class="status-cell" style="padding: 10px;">
-                            {% if item.existing_recording %}Überspringen{% else %}Wartet...{% endif %}
-                        </td>
+                        <td><input type="file" class="audio-input" data-piece-id="{{ item.piece.id }}"></td>
+                        <td><input type="text" class="description-input" placeholder="z.B. 1. Satz"></td>
+                        <td class="status-cell">Bereit</td>
                     </tr>
-                {% endfor %}
+                    {% endfor %}
             </tbody>
         </table>
 
@@ -88,7 +71,7 @@ document.getElementById('start-btn').onclick = async function() {
         row.style.backgroundColor = "#fff9e6";
 
         const formData = new FormData();
-        formData.append('file', input.files[0]);
+        formData.append('audio_file', input.files[0]);
         formData.append('piece_id', input.dataset.pieceId);
         formData.append('concert_id', "{{ concert.id }}");
         formData.append('order_num', input.dataset.order);
@@ -134,5 +117,18 @@ document.getElementById('start-btn').onclick = async function() {
     btn.classList.remove('default');
     alert("Der Vorgang wurde abgeschlossen.");
 };
+
+// Function to add a new row for additional movements/sätze of a piece (suite support)
+function addSuiteRow(pieceId) {
+    const originalRow = document.querySelector(`#row-${pieceId}`);
+    const newRow = originalRow.cloneNode(true);
+    newRow.id = ""; // remove id to avoid duplicates
+    newRow.querySelector('.audio-input').value = "";
+    newRow.querySelector('.description-input').value = "";
+    newRow.querySelector('.status-cell').innerHTML = "Bereit (Zusatz)";
+    newRow.querySelector('.existing-list').innerHTML = ""; //empty existing recordings for new row
+    originalRow.parentNode.insertBefore(newRow, originalRow.nextSibling);
+}
+
 </script>
 {% endblock %}
