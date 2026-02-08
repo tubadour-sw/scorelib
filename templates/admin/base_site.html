@@ -1,0 +1,10 @@
+{% extends "admin/base.html" %}
+
+{% block nav-global %}
+  {{ block.super }}
+  <div class="header-link" style="display:inline-block; margin-left: 20px;">
+    <a href="{% url 'admin:cleanup_orphans' %}" style="color: #ffc; font-weight: bold;">
+        🧹 Medien-Bereinigung
+    </a>
+  </div>
+{% endblock %}

@@ -26,6 +26,7 @@ from django.http import HttpResponseRedirect, HttpResponse
 from django import forms
 from django.db import models
 from django.forms import Textarea
+from django.conf import settings
 from difflib import SequenceMatcher
 import json
 import io
@@ -33,6 +34,7 @@ import zipfile
 import csv
 import subprocess
 import shutil
+import os
 
 # Authentifizierung
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -44,8 +46,9 @@ from .models import (
     SiteSettings, ExternalLink
 )
 from .forms import PartSplitFormSet
-from .utils import process_pdf_split
+from .utils import process_pdf_split, get_orphaned_files
 from .views import piece_csv_import, import_musicians
+
 
 def find_similar_names(queryset, threshold=0.80):
     """Find similar names and group them into clusters using connectivity.
@@ -371,9 +374,36 @@ class PublisherAdmin(admin.ModelAdmin):
     
     suggest_merge_publisher_action.short_description = "Mögliche Duplikate vorschlagen"
 
+class MediaCleanupMixin:
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('cleanup-orphans/', self.admin_site.admin_view(self.cleanup_view), name='cleanup_orphans'),
+            path('delete-orphan/', self.admin_site.admin_view(self.delete_orphan), name='delete_single_orphan'),
+        ]
+        return custom_urls + urls
+
+    def cleanup_view(self, request):
+        orphans = get_orphaned_files()
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'Verwaiste Mediendateien bereinigen',
+            'orphans': orphans,
+        }
+        return render(request, 'admin/cleanup_orphans.html', context)
+
+    def delete_orphan(self, request):
+        if request.method == 'POST':
+            file_path = request.POST.get('file_path')
+            full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+                messages.success(request, f"Datei gelöscht: {file_path}")
+        return redirect('admin:cleanup_orphans')
+
 
 @admin.register(Piece)
-class PieceAdmin(admin.ModelAdmin):
+class PieceAdmin(MediaCleanupMixin, admin.ModelAdmin):
     # Inlines und Auswahl-Hilfen
     inlines = [ExternalLinkInline, LoanRecordInline, PartInline, ]
     filter_horizontal = ('genres',)
@@ -799,13 +829,14 @@ class VenueAdmin(admin.ModelAdmin):
 
 
 @admin.register(SiteSettings)
-class SiteSettingsAdmin(admin.ModelAdmin):
+class SiteSettingsAdmin(MediaCleanupMixin, admin.ModelAdmin):
     list_display = ('site_title', 'audio_ripping_enabled')
-    readonly_fields = ('ffmpeg_status_display',)
+    readonly_fields = ('ffmpeg_status_display', 'cleanup_link', )
 
     fieldsets = (
         (None, {'fields': ('site_title', 'band_name', 'legal_text')}),
         ('Audio-Ripping', {'fields': ('audio_ripping_enabled', 'ffmpeg_status_display')}),
+        ('Wartung', {'fields': ('cleanup_link',)}),
     )
 
     def has_add_permission(self, request):
@@ -833,3 +864,10 @@ class SiteSettingsAdmin(admin.ModelAdmin):
             obj.audio_ripping_enabled = False
             messages.error(request, "Feature konnte nicht aktiviert werden: ffmpeg wurde auf diesem Server nicht gefunden.")
         super().save_model(request, obj, form, change)
+
+    def cleanup_link(self, obj):
+        url = reverse('admin:cleanup_orphans')
+        return format_html('<a href="{}" class="button" style="background: #79aec8;">🧹 Jetzt Medien-Bereinigung öffnen</a>', url)
+    
+    cleanup_link.short_description = "Datenbank-Hygiene"
+

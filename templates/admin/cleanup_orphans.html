@@ -1,0 +1,47 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+    <div class="changelist-filter" style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;">
+        <strong>Achtung:</strong> Diese Dateien existieren physisch auf dem Server, haben aber keine Verknüpfung mehr in der Datenbank. 
+        Das passiert oft, wenn ein Stück gelöscht wurde, aber die Datei nicht mitgelöscht wurde.
+    </div>
+
+    <div class="results">
+        <table id="result_list" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Typ</th>
+                    <th>Name</th>
+                    <th>Pfad</th>
+                    <th>Größe</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for orphan in orphans %}
+                <tr class="{% cycle 'row1' 'row2' %}">
+                    <td><strong>{{ orphan.type }}</strong></td>
+                    <td>{{ orphan.name }}</td>
+                    <td><code>{{ orphan.path }}</code></td>
+                    <td>{{ orphan.size|filesizeformat }}</td>
+                    <td>
+                        <form action="{% url 'admin:delete_single_orphan' %}" method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="file_path" value="{{ orphan.path }}">
+                            <input type="submit" value="Löschen" class="button" style="background: #ba2121;">
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 30px;">
+                        <span style="color: green; font-size: 1.5em;">✔</span> Alles sauber! Keine verwaisten Dateien gefunden.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

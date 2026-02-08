@@ -23,7 +23,7 @@ import subprocess
 import shutil
 from pypdf import PdfReader, PdfWriter
 from django.core.files.base import ContentFile
-from .models import Part, SiteSettings
+from .models import Part, SiteSettings, AudioRecording
 from django.conf import settings
 from django.utils.text import slugify
 
@@ -188,3 +188,38 @@ def rename_only(recording_obj, old_full_path, base_name, ext):
         shutil.move(old_full_path, new_full_path)
         recording_obj.audio_file.name = new_rel_path
         recording_obj.save(update_fields=['audio_file'])
+
+
+def get_orphaned_files():
+    orphaned_files = []
+    
+    # Zu prüfende Pfade und deren zugehörige Models
+    # Format: (Model, Feldname, Unterordner)
+    checks = [
+        (Part, 'pdf_file', 'parts'),
+        (AudioRecording, 'audio_file', 'concerts/audio'),
+    ]
+
+    for model, field, subfolder in checks:
+        full_dir_path = os.path.join(settings.MEDIA_ROOT, subfolder)
+        if not os.path.exists(full_dir_path):
+            continue
+
+        # Datenbank-Bestand als Set für schnellen Abgleich
+        files_in_db = set(model.objects.exclude(**{field: ""}).values_list(field, flat=True))
+
+        for root, dirs, files in os.walk(full_dir_path):
+            for filename in files:
+                # Erstelle den Pfad, wie er in der DB gespeichert wäre (z.B. 'parts/file.pdf')
+                rel_path = os.path.relpath(os.path.join(root, filename), settings.MEDIA_ROOT)
+                
+                if rel_path not in files_in_db:
+                    full_file_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+                    orphaned_files.append({
+                        'path': rel_path,
+                        'name': filename,
+                        'type': 'PDF (Noten)' if subfolder == 'parts' else 'Audio (Konzert)',
+                        'size': os.path.getsize(full_file_path)
+                    })
+                
+    return sorted(orphaned_files, key=lambda x: x['type'])
