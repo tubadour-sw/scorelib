@@ -688,7 +688,22 @@ class GenreAdmin(admin.ModelAdmin):
  
 @admin.register(AudioRecording)
 class AudioRecordingAdmin(admin.ModelAdmin):
-    list_display = ('piece', 'concert', 'audio_file')
+    list_display = ('piece', 'concert', 'description', 'audio_file_link')
+    list_filter = ('concert__title', 'concert__date')
+
+    search_fields = (
+        'piece__title', 
+        'piece__additional_info', 
+        'concert__title', 
+        'concert__subtitle'
+    )
+    autocomplete_fields = ['piece', 'concert']
+
+    def audio_file_link(self, obj):
+        if obj.audio_file:
+            return format_html('<a href="{}" target="_blank">📄 Datei öffnen</a>', obj.audio_file.url)
+        return "Keine Datei"
+    audio_file_link.short_description = "Audio"
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
