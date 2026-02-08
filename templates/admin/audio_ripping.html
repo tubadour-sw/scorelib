@@ -1,134 +1,257 @@
 {% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .ripping-container { margin-top: 20px; }
+    .audio-card-table { width: 100%; border-spacing: 0; background: #fff; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; }
+    .audio-card-table thead { background: #79aec8; color: #fff; }
+    .audio-card-table th { padding: 12px; text-align: left; font-weight: 600; }
+    .audio-row { border-bottom: 1px solid #eee; transition: background 0.2s; }
+    .audio-row:hover { background-color: #fcfcfc; }
+    .audio-row td { padding: 15px 12px; vertical-align: top; }
+    
+    /* Styling für bestehende Aufnahmen */
+    .recording-badge {
+        display: inline-flex;
+        align-items: center;
+        background: #e1f0f5;
+        color: #264b5d;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        margin: 4px 4px 0 0;
+        border: 1px solid #bcd0da;
+    }
+    .recording-badge i { margin-right: 5px; }
+    
+    /* Buttons & Inputs */
+    .btn-add-suite {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 4px 8px;
+        background: #f8f8f8;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        color: #444;
+        text-decoration: none;
+        font-size: 0.8em;
+        cursor: pointer;
+    }
+    .btn-add-suite:hover { background: #eee; color: #000; border-color: #999; }
+    
+    .audio-input { font-size: 0.9em; width: 100%; }
+    .description-input { width: 95%; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; }
+    
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-weight: bold;
+        background: #eee;
+    }
+    .status-ready { background: #eee; color: #666; }
+    .status-loading { background: #fff3cd; color: #856404; }
+    .status-success { background: #d4edda; color: #155724; }
+    .status-error { background: #f8d7da; color: #721c24; }
+    
+    .intro-box {
+        background: #f8f8f8;
+        padding: 15px;
+        border-left: 4px solid #79aec8;
+        margin-bottom: 20px;
+        color: #666;
+        line-height: 1.5;
+    }
+    .recording-badge {
+    position: relative;
+        padding-right: 25px; /* Platz für das X */
+    }
+    .btn-delete-recording {
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #cc0000;
+        cursor: pointer;
+        font-weight: bold;
+        padding: 0 4px;
+        border-radius: 50%;
+        font-size: 14px;
+        line-height: 1;
+    }
+    .btn-delete-recording:hover {
+        background: #ffcccc;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div id="content-main">
-    <p>Wählen Sie für jedes Stück die entsprechende Quelldatei aus und ergänzen Sie bei Bedarf eine Beschreibung.</p>
-    <p>Die Dateien sollten im WAV- oder MP3-Format vorliegen.</p>
-    <p>Die Dateien werden nacheinander hochgeladen, in MP3 konvertiert und mit Metadaten versehen. Bitte warten Sie nach dem Klick auf "Starten" mit weiteren Aktionen, bis der Vorgang abgeschlossen ist.</p>
-    <p>Hinweis: Bereits vorhandene Aufnahmen für ein Stück werden angezeigt. Wenn Sie weitere Sätze einer Suite hinzufügen möchten, verwenden Sie den Button "+ Weiterer Satz".</p>
-    <p>Die Konvertierung erfolgt mit FFmpeg (sofern auf dem Server installiert). Sollte es zu Problemen kommen, werden Fehlermeldungen angezeigt und Sie können den Vorgang erneut starten.</p>
-    <p>Nach Abschluss werden die Aufnahmen automatisch dem jeweiligen Stück zugeordnet.
-    </p>
+    <div class="intro-box">
+        <h2 style="margin-top:0; color:#333;">🎵 CD-Tracks zuordnen: {{ concert.title }}</h2>
+        <p>
+            Wählen Sie die Dateien aus. Für mehrsätzige Werke (Suiten) können Sie über den Button 
+            <strong>"+ Aufnahme hinzufügen"</strong> zusätzliche Zeilen erstellen. 
+            Geben Sie dann jeweils den Namen des Satzes in die Beschreibung ein.
+        </p>
+    </div>
 
-    <div class="module">
-        <table style="width: 100%; border-collapse: collapse;">
+    <div class="ripping-container">
+        <table class="audio-card-table">
             <thead>
-                <tr style="text-align: left; background: #f8f8f8;">
-                    <th style="padding: 10px;">Nr. / Titel</th>
-                    <th style="padding: 10px;">Audio-Datei (WAV/MP3)</th>
-                    <th style="padding: 10px;">Beschreibung</th>
-                    <th style="padding: 10px;">Status</th>
+                <tr>
+                    <th style="width: 35%;">Stück & Vorhandene Tracks</th>
+                    <th style="width: 25%;">Datei auswählen</th>
+                    <th style="width: 25%;">Beschreibung / Satz</th>
+                    <th style="width: 15%;">Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in program_items %}
-                    <tr id="row-{{ item.piece.id }}">
-                        <td>
-                            <strong>{{ item.order }}. {{ item.piece.title }}</strong>
-                            <div class="existing-list" style="font-size: 0.8em; color: #666;">
-                                {% for rec in item.existing_recordings.all %}
-                                    <div>✔ {{ rec.description|default:"Aufnahme" }}</div>
-                                {% endfor %}
-                            </div>
-                            <button type="button" onclick="addSuiteRow('{{ item.piece.id }}')" style="margin-top:5px; font-size:10px;">+ Weiterer Satz</button>
-                        </td>
-                        <td><input type="file" class="audio-input" data-piece-id="{{ item.piece.id }}"></td>
-                        <td><input type="text" class="description-input" placeholder="z.B. 1. Satz"></td>
-                        <td class="status-cell">Bereit</td>
-                    </tr>
-                    {% endfor %}
+                <tr id="row-{{ item.piece.id }}" class="audio-row">
+                    <td>
+                        <div style="font-size: 1.1em; font-weight: bold; margin-bottom: 5px;">
+                            {{ item.order }}. {{ item.piece.title }}
+                        </div>
+                        
+                        <div class="existing-recordings">
+                            {% for rec in item.existing_recordings %}
+                                <div class="recording-badge" id="badge-{{ rec.id }}" title="Datei: {{ rec.audio_file.name }}">
+                                    <span>🎵 {{ rec.description|default:"Aufnahme" }}</span>
+                                    <span class="btn-delete-recording" 
+                                        onclick="deleteRecording('{{ rec.id }}')" 
+                                        title="Löschen">×</span>
+                                </div>
+                            {% empty %}
+                                <span style="font-size: 0.8em; color: #999; font-style: italic;">Noch keine Aufnahmen vorhanden</span>
+                            {% endfor %}
+                        </div>
+
+                        <a href="javascript:void(0)" class="btn-add-suite" onclick="addSuiteRow('{{ item.piece.id }}')">
+                            + Aufnahme hinzufügen
+                        </a>
+                    </td>
+                    <td>
+                        <input type="file" class="audio-input" data-piece-id="{{ item.piece.id }}" accept=".wav,.mp3">
+                    </td>
+                    <td>
+                        <input type="text" class="description-input" placeholder="z.B. 1. Satz, Zugabe, etc.">
+                    </td>
+                    <td>
+                        <span class="status-badge status-ready">Bereit</span>
+                    </td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
 
-        <div class="submit-row" style="margin-top: 20px;">
-            <button type="button" id="start-btn" class="default" style="padding: 10px 20px; cursor: pointer;">
-                🚀 Konvertierung & Upload starten
+        <div class="submit-row" style="margin-top: 30px; background: #f8f8f8; padding: 20px; border-radius: 4px; text-align: right;">
+            <button id="start-btn" class="default" style="height: 40px; padding: 0 30px; font-size: 1.1em; cursor: pointer;">
+                🚀 Verarbeitung starten
             </button>
-            <a href="{{ request.META.HTTP_REFERER }}" class="closelink">Abbrechen</a>
         </div>
     </div>
 </div>
 
-
-
 <script>
-document.getElementById('start-btn').onclick = async function() {
-    const inputs = document.querySelectorAll('.audio-input');
-    const btn = this;
+function addSuiteRow(pieceId) {
+    const originalRow = document.querySelector(`#row-${pieceId}`);
+    const clone = originalRow.cloneNode(true);
     
-    if (!confirm("Die ausgewählten Dateien werden nacheinander konvertiert und hochgeladen. Fortfahren?")) return;
+    // Aufräumen des Klons
+    clone.id = ""; 
+    clone.style.backgroundColor = "#fff9e6"; // Leicht gelbliche Markierung für neue Zeilen
+    clone.querySelector('.audio-input').value = "";
+    clone.querySelector('.description-input').value = "";
+    const status = clone.querySelector('.status-badge');
+    status.innerHTML = "Bereit (Zusatz)";
+    status.className = "status-badge status-ready";
+    
+    // Wir entfernen die Liste der bestehenden Aufnahmen im Klon, um Platz zu sparen
+    const existing = clone.querySelector('.existing-recordings');
+    if (existing) existing.innerHTML = '<span style="font-size: 0.8em; color: #999;">(Zusatz-Track)</span>';
+    
+    originalRow.parentNode.insertBefore(clone, originalRow.nextSibling);
+}
 
+document.getElementById('start-btn').onclick = async function() {
+    const rows = document.querySelectorAll('.audio-row');
+    const btn = this;
     btn.disabled = true;
-    btn.innerHTML = "⌛ Verarbeitung läuft...";
+    btn.innerHTML = "⏳ Verarbeite...";
 
-    for (const input of inputs) {
-        if (input.files.length === 0) continue;
+    for (const row of rows) {
+        const fileInput = row.querySelector('.audio-input');
+        if (fileInput.files.length === 0) continue;
 
-        const row = input.closest('tr');
-        const statusCell = row.querySelector('.status-cell');
+        const statusBadge = row.querySelector('.status-badge');
         const descInput = row.querySelector('.description-input');
         
-        statusCell.innerHTML = "⏳ Lädt hoch & konvertiert...";
-        row.style.backgroundColor = "#fff9e6";
-
+        statusBadge.innerHTML = "⏳ Lädt...";
+        statusBadge.className = "status-badge status-loading";
+        
         const formData = new FormData();
-        formData.append('audio_file', input.files[0]);
-        formData.append('piece_id', input.dataset.pieceId);
+        formData.append('piece_id', fileInput.dataset.pieceId);
         formData.append('concert_id', "{{ concert.id }}");
-        formData.append('order_num', input.dataset.order);
         formData.append('description', descInput.value);
+        formData.append('audio_file', fileInput.files[0]);
         formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 Minuten Timeout
-
             const response = await fetch('{% url "process_single_audio" %}', {
                 method: 'POST',
-                body: formData,
-                signal: controller.signal
+                body: formData
             });
-            clearTimeout(timeoutId);
-
-            if (!response.ok) throw new Error(`Server-Antwort: ${response.status}`);
-            
             const result = await response.json();
             
             if (result.status === 'success') {
-                statusCell.innerHTML = "✅ Abgeschlossen";
-                row.style.backgroundColor = "#d4edda";
-                // Deaktiviere Inputs nach Erfolg
-                input.disabled = true;
-                descInput.disabled = true;
+                statusBadge.innerHTML = "✅ Fertig";
+                statusBadge.className = "status-badge status-success";
+                row.style.backgroundColor = "#f0fdf4";
             } else {
-                statusCell.innerHTML = "❌ Fehler: " + result.message;
-                row.style.backgroundColor = "#f8d7da";
+                statusBadge.innerHTML = "❌ Fehler";
+                statusBadge.className = "status-badge status-error";
+                alert("Fehler bei " + result.piece + ": " + result.message);
             }
         } catch (e) {
-            statusCell.innerHTML = "❌ Abbruch: " + e.message;
-            row.style.backgroundColor = "#f8d7da";
-            console.error(e);
-            btn.disabled = false;
-            btn.innerHTML = "⚠️ Fehler aufgetreten - Erneut versuchen?";
-            return; 
+            statusBadge.innerHTML = "❌ Abbruch";
+            statusBadge.className = "status-badge status-error";
         }
     }
     
-    btn.innerHTML = "✅ Alle Aufgaben erledigt";
-    btn.classList.remove('default');
-    alert("Der Vorgang wurde abgeschlossen.");
+    btn.disabled = false;
+    btn.innerHTML = "🚀 Verarbeitung starten";
+    alert("Vorgang abgeschlossen.");
 };
 
-// Function to add a new row for additional movements/sätze of a piece (suite support)
-function addSuiteRow(pieceId) {
-    const originalRow = document.querySelector(`#row-${pieceId}`);
-    const newRow = originalRow.cloneNode(true);
-    newRow.id = ""; // remove id to avoid duplicates
-    newRow.querySelector('.audio-input').value = "";
-    newRow.querySelector('.description-input').value = "";
-    newRow.querySelector('.status-cell').innerHTML = "Bereit (Zusatz)";
-    newRow.querySelector('.existing-list').innerHTML = ""; //empty existing recordings for new row
-    originalRow.parentNode.insertBefore(newRow, originalRow.nextSibling);
-}
+async function deleteRecording(recId) {
+    if (!confirm("Möchten Sie diese Aufnahme wirklich dauerhaft löschen?")) return;
 
+    const formData = new FormData();
+    formData.append('recording_id', recId);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    try {
+        const response = await fetch('{% url "delete_audio_recording" %}', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Badge sanft ausblenden
+            const badge = document.getElementById(`badge-${recId}`);
+            badge.style.transition = "opacity 0.3s";
+            badge.style.opacity = "0";
+            setTimeout(() => badge.remove(), 300);
+        } else {
+            alert("Fehler beim Löschen: " + result.message);
+        }
+    } catch (e) {
+        alert("Netzwerkfehler beim Löschen.");
+    }
+}
 </script>
 {% endblock %}

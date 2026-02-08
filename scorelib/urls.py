@@ -29,5 +29,5 @@ urlpatterns = [
     # audio ripping workflow
     path('admin/audio-ripping/<int:concert_id>/', views.audio_ripping_page, name='audio_ripping_page'),
     path('admin/api/process-audio/', views.process_single_audio, name='process_single_audio'),
-    
+    path('admin/api/delete-audio/', views.delete_audio_recording, name='delete_audio_recording')
 ]

@@ -1028,3 +1028,20 @@ def audio_ripping_page(request, concert_id):
         'title': f'CD-Tracks zuordnen: {concert.title}'
     }
     return render(request, 'admin/audio_ripping.html', context)
+
+@require_POST
+@login_required
+def delete_audio_recording(request):
+    recording_id = request.POST.get('recording_id')
+    recording = get_object_or_404(AudioRecording, pk=recording_id)
+    
+    try:
+        # Datei vom Dateisystem löschen
+        if recording.audio_file and os.path.exists(recording.audio_file.path):
+            os.remove(recording.audio_file.path)
+        
+        # Datenbankeintrag löschen
+        recording.delete()
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
