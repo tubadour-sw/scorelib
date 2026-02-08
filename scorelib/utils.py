@@ -141,7 +141,7 @@ def process_audio_file_logic(recording_obj):
     # include description but only keep safe characters and limit length to avoid filesystem issues
     safe_desc = "".join(x for x in recording_obj.description if x.isalnum() or x in "._- ")[:20]
     
-    base_name = f"{safe_concert}_{safe_piece}_{safe_desc}_c{recording_obj.concert.id}_r{recording_obj.id}"
+    base_name = f"{safe_concert}_{safe_piece}_{safe_desc}_c{recording_obj.concert.id}_r{recording_obj.id}".replace(" ", "_")
     
     # case 1: ffmpeg is available and audio ripping is enabled -> convert to MP3 with metadata
     if site_settings and site_settings.audio_ripping_enabled and shutil.which('ffmpeg'):
