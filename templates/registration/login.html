@@ -16,4 +16,37 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. Find the password input field
+        const passwordField = document.querySelector('input[type="password"]');
+        
+        if (passwordField) {
+            // 2. Create the eye icon (using an emoji for simplicity)
+            const toggleSpan = document.createElement('span');
+            toggleSpan.innerHTML = '👁️';
+            toggleSpan.style.cssText = `
+                cursor: pointer;
+                margin-left: -30px;
+                position: relative;
+                z-index: 2;
+                user-select: none;
+            `;
+
+            // 3. Add the eye icon right after the password field
+            passwordField.parentNode.insertBefore(toggleSpan, passwordField.nextSibling);
+
+            // 4. Click event to toggle password visibility
+            toggleSpan.addEventListener('click', function() {
+                const isPassword = passwordField.getAttribute('type') === 'password';
+                passwordField.setAttribute('type', isPassword ? 'text' : 'password');
+                this.innerHTML = isPassword ? '🙈' : '👁️';
+            });
+
+            // 5. Add some padding to the right of the password field to prevent overlap
+            passwordField.style.paddingRight = '30px';
+        }
+    });
+</script>
 {% endblock %}
