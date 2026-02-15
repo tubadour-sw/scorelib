@@ -270,8 +270,8 @@ def concert_detail_view(request, concert_id=None):
 def concert_list_view(request):
     # Get filter values from URL
     f_search = request.GET.get('search', '')
-    f_sort = request.GET.get('sort', 'title')  # 'title' or 'date'
-    f_sort_dir = request.GET.get('sort_dir', 'asc')  # 'asc' or 'desc'
+    f_sort = request.GET.get('sort', 'date')  # 'title' or 'date'
+    f_sort_dir = request.GET.get('sort_dir', 'desc')  # 'asc' or 'desc'
     
     # Start with all concerts
     concerts = Concert.objects.all()
@@ -285,16 +285,16 @@ def concert_list_view(request):
     
     # Apply sorting
     if f_sort == 'date':
-        order_field = 'date'
+        if f_sort_dir == 'asc':
+            concerts = concerts.order_by('sort_date', 'title')
+        else:            
+            concerts = concerts.order_by('-sort_date', 'title')
     else:  # default to 'title'
-        order_field = 'title'
-    
-    # Apply direction prefix for descending
-    if f_sort_dir == 'desc':
-        order_field = f'-{order_field}'
-    
-    concerts = concerts.order_by(order_field)
-    
+        if f_sort_dir == 'asc':
+            concerts = concerts.order_by('title')
+        else:
+            concerts = concerts.order_by('-title')
+     
     # Apply pagination: 50 items per page
     paginator = Paginator(concerts, 50)
     page_number = request.GET.get('page', 1)

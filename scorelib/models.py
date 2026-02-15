@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import re
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -249,9 +250,23 @@ class Concert(models.Model):
         verbose_name="Untertitel"
     )
     date = models.DateTimeField(blank=True, null=True)
+    sort_date = models.DateField(editable=False, null=True)
     venue = models.ForeignKey(Venue, on_delete=models.SET_NULL, null=True)
     poster = models.ImageField(upload_to='concerts/posters/', blank=True, null=True)
     program = models.ManyToManyField(Piece, through='ProgramItem', related_name='concerts')
+
+    def save(self, *args, **kwargs):
+        if self.date:
+            self.sort_date = self.date
+        else:
+            match = re.search(r'(\d{4})', self.title)
+            if match:
+                from datetime import date
+                self.sort_date = date(int(match.group(1)), 7, 1)
+            else:
+                from datetime import date
+                self.sort_date = date(1900, 1, 1)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         date_txt = f"({self.date.date()})" if self.date else ""

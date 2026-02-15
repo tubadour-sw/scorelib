@@ -80,7 +80,15 @@
                         {% if c.subtitle %}<p class="mb-1 text-muted">{{ c.subtitle }}</p>{% endif %}
                     </a>
                 </td>
-                <td>{% if c.date %}<small>{{ c.date|date:"d.m.Y" }}</small>{% else %}<small class="text-muted">-</small>{% endif %}</td>
+                <td>
+                    {% if c.date %}
+                        <small>{{ c.date|date:"d.m.Y" }}</small>
+                    {% elif c.sort_date|date:"Y" == "1900" %}
+                        <small class="text-muted">-</small>
+                    {% else %}
+                        <small class="text-muted">{{ c.sort_date|date:"Y" }}</small>
+                    {% endif %}
+                </td>
             </tr>
             {% empty %}
             <tr>
