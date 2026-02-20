@@ -18,6 +18,15 @@ server {
         alias /home/pi/skg-notenbank/staticfiles/; # Pfad von collectstatic
     }
 
+    # Sensitive files are served only via Django permission-checked views.
+    location ^~ /media/sheet_music/parts/ {
+        return 403;
+    }
+
+    location ^~ /media/concerts/audio/ {
+        return 403;
+    }
+
     location /media/ {
         alias /home/pi/skg-notenbank/media/; # Hier liegen deine PDFs
         expires 7d;

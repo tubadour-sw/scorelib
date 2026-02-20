@@ -35,49 +35,58 @@ from django.contrib.auth.models import User
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 from django.conf import settings
+from django.urls import reverse
 
 
 # Importiere deine Modelle
 from .models import (
-    Piece, Part, Concert, Arranger, Composer, Publisher, Genre, MusicianProfile, 
-    AudioRecording, InstrumentGroup, SiteSettings, ProgramItem
+    Piece,
+    Part,
+    Concert,
+    Arranger,
+    Composer,
+    Publisher,
+    Genre,
+    MusicianProfile,
+    AudioRecording,
+    InstrumentGroup,
+    SiteSettings,
+    ProgramItem,
 )
 from .forms import CSVPiecesImportForm, CSVUserImportForm, UserProfileUpdateForm
+
 
 @login_required
 def scorelib_index(request):
     # Load recordings directly to avoid database queries in loops
-    pieces = Piece.objects.select_related(
-        'composer', 
-        'arranger', 
-        'publisher'
-    ).order_by('title').prefetch_related(
-        'concerts', 
-        'genres',
-        'audiorecording_set'
+    pieces = (
+        Piece.objects.select_related("composer", "arranger", "publisher")
+        .order_by("title")
+        .prefetch_related("concerts", "genres", "audiorecording_set")
     )
-    
-    
+
     # Get filter values from URL (GET request)
-    f_search = request.GET.get('search')
-    f_genre = request.GET.get('genre')
-    f_diff = request.GET.get('difficulty')
-    f_comp = request.GET.get('composer')
-    f_arr = request.GET.get('arranger')
-    f_pub = request.GET.get('publisher')
-    f_con = request.GET.get('concert')
-    f_sort = request.GET.get('sort', 'title')  # Default sort by title
-    f_sort_dir = request.GET.get('sort_dir', 'asc')  # 'asc' or 'desc'
-    f_sort_artist = request.GET.get('sort_artist', 'composer')  # Choose composer or arranger for the artist column
+    f_search = request.GET.get("search")
+    f_genre = request.GET.get("genre")
+    f_diff = request.GET.get("difficulty")
+    f_comp = request.GET.get("composer")
+    f_arr = request.GET.get("arranger")
+    f_pub = request.GET.get("publisher")
+    f_con = request.GET.get("concert")
+    f_sort = request.GET.get("sort", "title")  # Default sort by title
+    f_sort_dir = request.GET.get("sort_dir", "asc")  # 'asc' or 'desc'
+    f_sort_artist = request.GET.get(
+        "sort_artist", "composer"
+    )  # Choose composer or arranger for the artist column
 
     # Filter anwenden
     if f_search:
         pieces = pieces.filter(
-            Q(title__icontains=f_search) | 
-            Q(archive_label__icontains=f_search) |
-            Q(composer__name__icontains=f_search) |
-            Q(arranger__name__icontains=f_search) |
-            Q(additional_info__icontains=f_search)
+            Q(title__icontains=f_search)
+            | Q(archive_label__icontains=f_search)
+            | Q(composer__name__icontains=f_search)
+            | Q(arranger__name__icontains=f_search)
+            | Q(additional_info__icontains=f_search)
         )
     if f_genre:
         pieces = pieces.filter(genres__id=f_genre)
@@ -97,88 +106,115 @@ def scorelib_index(request):
     pieces = pieces.distinct()
 
     # Apply sorting to the full queryset before pagination
-    f_sort_artist = request.GET.get('sort_artist', 'composer')  # Choose composer or arranger for the artist column
-    
-    if f_sort == 'title':
-        order_field = 'title'
-    elif f_sort == 'composer':
+    f_sort_artist = request.GET.get(
+        "sort_artist", "composer"
+    )  # Choose composer or arranger for the artist column
+
+    if f_sort == "title":
+        order_field = "title"
+    elif f_sort == "composer":
         # Sort by chosen artist field (composer or arranger)
-        if f_sort_artist == 'arranger':
-            order_field = 'arranger__name'
+        if f_sort_artist == "arranger":
+            order_field = "arranger__name"
         else:
-            order_field = 'composer__name'
-    elif f_sort == 'publisher':
-        order_field = 'publisher__name'
-    elif f_sort == 'difficulty':
-        order_field = 'difficulty'
-    elif f_sort == 'label':
-        order_field = 'archive_label'
+            order_field = "composer__name"
+    elif f_sort == "publisher":
+        order_field = "publisher__name"
+    elif f_sort == "difficulty":
+        order_field = "difficulty"
+    elif f_sort == "label":
+        order_field = "archive_label"
     else:
-        order_field = 'title'
-    
+        order_field = "title"
+
     # Apply direction prefix for descending
-    if f_sort_dir == 'desc':
-        order_field = f'-{order_field}'
-    
+    if f_sort_dir == "desc":
+        order_field = f"-{order_field}"
+
     pieces = pieces.order_by(order_field)
-    
+
     # Apply pagination: 50 items per page
     paginator = Paginator(pieces, 50)
-    page_number = request.GET.get('page', 1)
+    page_number = request.GET.get("page", 1)
     try:
         page_obj = paginator.page(page_number)
     except Exception:
         page_obj = paginator.page(1)
-    
-    context = {
-        'pieces': page_obj.object_list,  # Only the pieces for this page
-        'page_obj': page_obj,  # The paginator object for template
-        'genres': Genre.objects.all().order_by('name'),
-        'composers': Composer.objects.all().order_by('name'),
-        'arrangers': Arranger.objects.all().order_by('name'),
-        'publishers': Publisher.objects.all().order_by('name'),
-        'concerts': Concert.objects.all().order_by('-date'),
-        'active_filters': request.GET,
-        'current_sort': f_sort,
-        'current_sort_dir': f_sort_dir,
-        'current_sort_artist': f_sort_artist,
-        'total_count': paginator.count
-    }
-    return render(request, 'scorelib/index.html', context)
 
+    context = {
+        "pieces": page_obj.object_list,  # Only the pieces for this page
+        "page_obj": page_obj,  # The paginator object for template
+        "genres": Genre.objects.all().order_by("name"),
+        "composers": Composer.objects.all().order_by("name"),
+        "arrangers": Arranger.objects.all().order_by("name"),
+        "publishers": Publisher.objects.all().order_by("name"),
+        "concerts": Concert.objects.all().order_by("-date"),
+        "active_filters": request.GET,
+        "current_sort": f_sort,
+        "current_sort_dir": f_sort_dir,
+        "current_sort_artist": f_sort_artist,
+        "total_count": paginator.count,
+    }
+    return render(request, "scorelib/index.html", context)
+
+
+@login_required
 def scorelib_search(request):
     """Returns search results as JSON."""
-    query = request.GET.get('q', '')
+    query = request.GET.get("q", "")
+    user_profile = getattr(request.user, "profile", None)
+    has_full_archive_access = request.user.is_staff or (
+        user_profile and user_profile.has_full_archive_access
+    )
+
     # Search in title, composer, or archive number
-    pieces = Piece.objects.filter(
-        Q(title__icontains=query) | 
-        Q(additional_info__icontains=query) |
-        Q(composer__name__icontains=query) |
-        Q(arranger__name__icontains=query) |
-        Q(archive_label__icontains=query)
-    ).distinct()[:20] # Limited to 20 results for speed
+    pieces = (
+        Piece.objects.filter(
+            Q(title__icontains=query)
+            | Q(additional_info__icontains=query)
+            | Q(composer__name__icontains=query)
+            | Q(arranger__name__icontains=query)
+            | Q(archive_label__icontains=query)
+        )
+        .distinct()
+        .prefetch_related("parts")[:20]
+    )  # Limited to 20 results for speed
 
     results = []
     for piece in pieces:
-        # Get all parts for this piece
+        # Return only parts the current user may access
         parts = []
-        for part in piece.parts.all():
-            parts.append({
-                'id': part.id,
-                'name': part.part_name,
-                'url': part.pdf_file.url
-            })
-        
-        results.append({
-            'id': piece.id,
-            'title': piece.title,
-            'composer': piece.composer.name if piece.composer else '',
-            'label': piece.archive_label,
-            'parts': parts
-        })
-    
-    return JsonResponse({'results': results})
-    
+        if has_full_archive_access:
+            allowed_parts = piece.parts.all()
+        elif user_profile and piece.is_active_for_download():
+            allowed_parts = [
+                p for p in piece.parts.all() if user_profile.can_view_part(p.part_name)
+            ]
+        else:
+            allowed_parts = []
+
+        for part in allowed_parts:
+            parts.append(
+                {
+                    "id": part.id,
+                    "name": part.part_name,
+                    "url": reverse("protected_part_download", args=[part.id]),
+                }
+            )
+
+        results.append(
+            {
+                "id": piece.id,
+                "title": piece.title,
+                "composer": piece.composer.name if piece.composer else "",
+                "label": piece.archive_label,
+                "parts": parts,
+            }
+        )
+
+    return JsonResponse({"results": results})
+
+
 @login_required
 def concert_detail_view(request, concert_id=None):
     if concert_id:
@@ -186,37 +222,39 @@ def concert_detail_view(request, concert_id=None):
         next_concert = get_object_or_404(Concert, pk=concert_id)
     else:
         # 1. Try: Find the next concert chronologically
-        next_concert = Concert.objects.filter(
-            date__isnull=False, 
-            date__gte=timezone.now()
-        ).order_by('date').first()
-        
+        next_concert = (
+            Concert.objects.filter(date__isnull=False, date__gte=timezone.now())
+            .order_by("date")
+            .first()
+        )
+
         # 2. Fallback: If no future concert exists, use the latest one
         if not next_concert:
-            next_concert = Concert.objects.filter(
-                date__isnull=False
-            ).order_by('-date').first()
-            
+            next_concert = (
+                Concert.objects.filter(date__isnull=False).order_by("-date").first()
+            )
+
     # If the database is completely empty (no concert at all),
     # we should skip the rest of the view or show a message
     if not next_concert:
-        return render(request, 'scorelib/concert_detail.html', {'concert': None})
-        
-    context = {'concert': next_concert}
-    
+        return render(request, "scorelib/concert_detail.html", {"concert": None})
+
+    context = {"concert": next_concert}
+
     # Calculate the sum of all 'duration' fields of pieces in the program
     # We access the Piece via ProgramItem
     total_duration = next_concert.programitem_set.aggregate(
-        total=Sum('piece__duration')
-    )['total']
+        total=Sum("piece__duration")
+    )["total"]
 
     # If the program is empty, set duration to 0
     if not total_duration:
         from datetime import timedelta
+
         total_duration = timedelta(0)
-        
-    context['total_duration'] = total_duration
-    
+
+    context["total_duration"] = total_duration
+
     # Format duration for display
     total_seconds = int(total_duration.total_seconds())
     minutes = total_seconds // 60
@@ -229,131 +267,155 @@ def concert_detail_view(request, concert_id=None):
     else:
         formatted_duration = f"{minutes}:{seconds:02d} Min."
 
-    context['formatted_duration'] = formatted_duration
+    context["formatted_duration"] = formatted_duration
 
     if next_concert:
         # Get the logged-in user's profile
         # (Uses the 'related_name=profile' from the model)
-        profile = getattr(request.user, 'profile', None)
+        profile = getattr(request.user, "profile", None)
         # Expose a boolean for templates to check full archive access
-        context['has_full_archive_access'] = request.user.is_staff or (profile.has_full_archive_access if profile else False)
+        context["has_full_archive_access"] = request.user.is_staff or (
+            profile.has_full_archive_access if profile else False
+        )
         program_data = []
         # Iterate through the concert program (via ProgramItem for order)
-        for item in next_concert.programitem_set.all().select_related('piece'):
+        for item in next_concert.programitem_set.all().select_related("piece"):
             piece = item.piece
-            
+
             # Filter parts based on user's instrument filter
             user_parts = []
-            if profile and (profile.has_full_archive_access or piece.is_active_for_download()):
+            if profile and (
+                profile.has_full_archive_access or piece.is_active_for_download()
+            ):
                 all_parts = piece.parts.all()
-                user_parts = [p for p in all_parts if profile.can_view_part(p.part_name)]
+                user_parts = [
+                    p for p in all_parts if profile.can_view_part(p.part_name)
+                ]
 
             has_youtube = piece.external_links.filter(
-                Q(url__icontains='youtube.com') | Q(url__icontains='youtu.be')
+                Q(url__icontains="youtube.com") | Q(url__icontains="youtu.be")
             ).exists()
-            
-            program_data.append({
-                'piece': piece,
-                'user_parts': user_parts,
-                'has_youtube': has_youtube,
-                'recordings': piece.audiorecording_set.filter(concert=next_concert)
-            })
-            
-        context['program_data'] = program_data
+
+            program_data.append(
+                {
+                    "piece": piece,
+                    "user_parts": user_parts,
+                    "has_youtube": has_youtube,
+                    "recordings": piece.audiorecording_set.filter(concert=next_concert),
+                }
+            )
+
+        context["program_data"] = program_data
 
     # Ensure templates can access the profile object if needed
-    context['user_profile'] = profile
+    context["user_profile"] = profile
 
-    return render(request, 'scorelib/concert_detail.html', context)
+    return render(request, "scorelib/concert_detail.html", context)
+
 
 @login_required
 def concert_list_view(request):
     # Get filter values from URL
-    f_search = request.GET.get('search', '')
-    f_sort = request.GET.get('sort', 'date')  # 'title' or 'date'
-    f_sort_dir = request.GET.get('sort_dir', 'desc')  # 'asc' or 'desc'
-    
+    f_search = request.GET.get("search", "")
+    f_sort = request.GET.get("sort", "date")  # 'title' or 'date'
+    f_sort_dir = request.GET.get("sort_dir", "desc")  # 'asc' or 'desc'
+
     # Start with all concerts
     concerts = Concert.objects.all()
-    
+
     # Apply search filter
     if f_search:
         concerts = concerts.filter(
-            Q(title__icontains=f_search) |
-            Q(subtitle__icontains=f_search)
+            Q(title__icontains=f_search) | Q(subtitle__icontains=f_search)
         )
-    
+
     # Apply sorting
-    if f_sort == 'date':
-        if f_sort_dir == 'asc':
-            concerts = concerts.order_by('sort_date', 'title')
-        else:            
-            concerts = concerts.order_by('-sort_date', 'title')
-    else:  # default to 'title'
-        if f_sort_dir == 'asc':
-            concerts = concerts.order_by('title')
+    if f_sort == "date":
+        if f_sort_dir == "asc":
+            concerts = concerts.order_by("sort_date", "title")
         else:
-            concerts = concerts.order_by('-title')
-     
+            concerts = concerts.order_by("-sort_date", "title")
+    else:  # default to 'title'
+        if f_sort_dir == "asc":
+            concerts = concerts.order_by("title")
+        else:
+            concerts = concerts.order_by("-title")
+
     # Apply pagination: 50 items per page
     paginator = Paginator(concerts, 50)
-    page_number = request.GET.get('page', 1)
+    page_number = request.GET.get("page", 1)
     try:
         page_obj = paginator.page(page_number)
     except Exception:
         page_obj = paginator.page(1)
-    
+
     context = {
-        'concerts': page_obj.object_list,
-        'page_obj': page_obj,
-        'active_filters': request.GET,
-        'current_sort': f_sort,
-        'current_sort_dir': f_sort_dir,
-        'total_count': paginator.count
+        "concerts": page_obj.object_list,
+        "page_obj": page_obj,
+        "active_filters": request.GET,
+        "current_sort": f_sort,
+        "current_sort_dir": f_sort_dir,
+        "total_count": paginator.count,
     }
-    return render(request, 'scorelib/concert_list.html', context)
+    return render(request, "scorelib/concert_list.html", context)
+
 
 @login_required
 def protected_part_download(request, part_id):
     part = get_object_or_404(Part, pk=part_id)
-    
-    if not request.user.is_staff: 
-        profile = getattr(request.user, 'profile', None)
+
+    if not request.user.is_staff:
+        profile = getattr(request.user, "profile", None)
         piece = part.piece
         if not profile:
-            return HttpResponse("Zugriff verweigert: Du hast keinen Zugriff auf Noten.", status=403)
-            
+            return HttpResponse(
+                "Zugriff verweigert: Du hast keinen Zugriff auf Noten.", status=403
+            )
+
         if not profile.has_full_archive_access:
             if not piece.is_active_for_download():
-                return HttpResponse("Zugriff verweigert: Noten für dieses Stück stehen momentan nicht zur Verfügung.", status=403)
+                return HttpResponse(
+                    "Zugriff verweigert: Noten für dieses Stück stehen momentan nicht zur Verfügung.",
+                    status=403,
+                )
 
             if not profile.can_view_part(part.part_name):
-                return HttpResponse("Zugriff verweigert: Diese Stimme gehört nicht zu deinem Instrumenten-Filter.", status=403)
+                return HttpResponse(
+                    "Zugriff verweigert: Diese Stimme gehört nicht zu deinem Instrumenten-Filter.",
+                    status=403,
+                )
 
     # Pfad zur Datei auf der Festplatte
     file_path = part.pdf_file.path
     if os.path.exists(file_path):
-        with open(file_path, 'rb') as fh:
-            #response = HttpResponse(fh.read(), content_type="application/pdf")
-            response = FileResponse(open(file_path, 'rb'), content_type="application/pdf") 
+        with open(file_path, "rb") as fh:
+            # response = HttpResponse(fh.read(), content_type="application/pdf")
+            response = FileResponse(
+                open(file_path, "rb"), content_type="application/pdf"
+            )
             # Opens the PDF in the browser instead of downloading immediately
-            response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+            response["Content-Disposition"] = (
+                f'inline; filename="{os.path.basename(file_path)}"'
+            )
             return response
     raise Http404
-    
+
+
 @login_required
 def protected_audio_download(request, audio_id):
     recording = get_object_or_404(AudioRecording, pk=audio_id)
-    
+
     # Pfad zur Datei
     file_path = recording.audio_file.path
-    
+
     if not os.path.exists(file_path):
         raise Http404
 
     # FileResponse ist effizienter fuer Streaming (Audio/Video)
-    response = FileResponse(open(file_path, 'rb'), content_type="audio/mpeg")
-    response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+    response = FileResponse(open(file_path, "rb"), content_type="audio/mpeg")
+    response["Content-Disposition"] = (
+        f'inline; filename="{os.path.basename(file_path)}"'
+    )
     return response
 
 
@@ -361,128 +423,156 @@ def piece_csv_import(request):
     if request.method == "POST":
         form = CSVPiecesImportForm(request.POST, request.FILES)
         if form.is_valid():
-            csv_file = request.FILES['csv_file']
-            
+            csv_file = request.FILES["csv_file"]
+
             try:
                 # utf-8-sig handles Excel BOM issues
-                data_set = csv_file.read().decode('utf-8-sig')
+                data_set = csv_file.read().decode("utf-8-sig")
                 io_string = io.StringIO(data_set)
-                
+
                 # Read the header separately for validation
-                reader = csv.DictReader(io_string, delimiter=';')
-                
+                reader = csv.DictReader(io_string, delimiter=";")
+
                 # Consistency check: Are required columns present?
                 # reader.fieldnames contains the header names
-                required_columns = ['Title', 'Composer', 'Arranger']
-                missing_columns = [col for col in required_columns if col not in reader.fieldnames]
-                
+                required_columns = ["Title", "Composer", "Arranger"]
+                missing_columns = [
+                    col for col in required_columns if col not in reader.fieldnames
+                ]
+
                 if missing_columns:
                     messages.error(
-                        request, 
+                        request,
                         f"Import abgebrochen: Die CSV-Datei hat ein falsches Format. "
                         f"Es fehlen folgende Spalten: {', '.join(missing_columns)}. "
-                        f"Bitte prüfen Sie die Groß-/Kleinschreibung."
+                        f"Bitte prüfen Sie die Groß-/Kleinschreibung.",
                     )
                     return redirect(request.path)
-                
+
                 created_count = 0
                 updated_count = 0
                 with transaction.atomic():
                     for row in reader:
                         if not row.get("Title"):
                             continue
-                        
+
                         # Get or create composer
-                        composer, _ = Composer.objects.get_or_create(name=row.get('Composer', '').strip())
-                        
+                        composer, _ = Composer.objects.get_or_create(
+                            name=row.get("Composer", "").strip()
+                        )
+
                         # Get or create arranger (optional)
                         arranger = None
-                        if row.get('Arranger'):
-                            arranger, _ = Arranger.objects.get_or_create(name=row['Arranger'].strip())
-                            
+                        if row.get("Arranger"):
+                            arranger, _ = Arranger.objects.get_or_create(
+                                name=row["Arranger"].strip()
+                            )
+
                         publisher = None
-                        if row.get('Publisher'):
-                            publisher, _ = Publisher.objects.get_or_create(name=row['Publisher'].strip())
-                        
+                        if row.get("Publisher"):
+                            publisher, _ = Publisher.objects.get_or_create(
+                                name=row["Publisher"].strip()
+                            )
+
                         # Difficulty level
-                        diff_raw = row.get('Difficulty', '').strip()
+                        diff_raw = row.get("Difficulty", "").strip()
                         difficulty = int(diff_raw) if diff_raw.isdigit() else None
-                        
+
                         # Duration logic for DurationField
-                        duration_raw = row.get('Duration', '').strip() # Assumes column is named this way
+                        duration_raw = row.get(
+                            "Duration", ""
+                        ).strip()  # Assumes column is named this way
                         duration_delta = None
-                        
-                        if duration_raw and ':' in duration_raw:
+
+                        if duration_raw and ":" in duration_raw:
                             try:
-                                parts = duration_raw.split(':')
-                                if len(parts) == 2: # mm:ss
+                                parts = duration_raw.split(":")
+                                if len(parts) == 2:  # mm:ss
                                     minutes, seconds = map(int, parts)
-                                    duration_delta = timedelta(minutes=minutes, seconds=seconds)
-                                elif len(parts) == 3: # hh:mm:ss
+                                    duration_delta = timedelta(
+                                        minutes=minutes, seconds=seconds
+                                    )
+                                elif len(parts) == 3:  # hh:mm:ss
                                     hours, minutes, seconds = map(int, parts)
-                                    duration_delta = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+                                    duration_delta = timedelta(
+                                        hours=hours, minutes=minutes, seconds=seconds
+                                    )
                             except ValueError:
-                                pass # If text is in the time column, we ignore it
-                                
+                                pass  # If text is in the time column, we ignore it
+
                         # Create piece (only if title + composer combination doesn't exist yet)
                         piece, created = Piece.objects.update_or_create(
-                            title=row['Title'].strip(),
-                            archive_label=row.get('Label', '').strip(),
+                            title=row["Title"].strip(),
+                            archive_label=row.get("Label", "").strip(),
                             composer=composer,
                             defaults={
-                                'arranger': arranger,
-                                'duration': duration_delta,
-                                'difficulty': difficulty,
-                                'publisher': publisher,
-                            }
+                                "arranger": arranger,
+                                "duration": duration_delta,
+                                "difficulty": difficulty,
+                                "publisher": publisher,
+                            },
                         )
-                        
+
                         # Link genres (multiple entries separated by comma possible)
-                        if row.get('Genres'):
-                            genre_names = [g.strip() for g in row['Genres'].split(',')]
+                        if row.get("Genres"):
+                            genre_names = [g.strip() for g in row["Genres"].split(",")]
                             for g_name in genre_names:
                                 genre, _ = Genre.objects.get_or_create(name=g_name)
                                 piece.genres.add(genre)
-                        
-                        if row.get('Concerts'):
-                            concert_names = [g.strip() for g in row['Concerts'].split(',')]
+
+                        if row.get("Concerts"):
+                            concert_names = [
+                                g.strip() for g in row["Concerts"].split(",")
+                            ]
                             for c_name in concert_names:
                                 concert, _ = Concert.objects.get_or_create(title=c_name)
                                 piece.concerts.add(concert)
-                        
+
                         if created:
                             created_count += 1
                         else:
                             updated_count += 1
-                    
-                    messages.success(request, f"Import abgeschlossen: {created_count} Stücke neu angelegt, {updated_count} Stücke aktualisiert.")
-                    return redirect('admin:scorelib_piece_changelist')
+
+                    messages.success(
+                        request,
+                        f"Import abgeschlossen: {created_count} Stücke neu angelegt, {updated_count} Stücke aktualisiert.",
+                    )
+                    return redirect("admin:scorelib_piece_changelist")
             except UnicodeDecodeError:
-                messages.error(request, "Fehler: Die Datei konnte nicht gelesen werden. Bitte stellen Sie sicher, dass sie als CSV (UTF-8) gespeichert wurde.")
+                messages.error(
+                    request,
+                    "Fehler: Die Datei konnte nicht gelesen werden. Bitte stellen Sie sicher, dass sie als CSV (UTF-8) gespeichert wurde.",
+                )
             except Exception as e:
                 messages.error(request, f"Ein unerwarteter Fehler ist aufgetreten: {e}")
     else:
         form = CSVPiecesImportForm()
-    
-    return render(request, 'admin/csv_pieces_import.html', {'form': form})
-   
+
+    return render(request, "admin/csv_pieces_import.html", {"form": form})
+
 
 def index(request):
     # Base queryset
-    pieces = Piece.objects.all().select_related('composer', 'arranger', 'publisher').order_by('title')
+    pieces = (
+        Piece.objects.all()
+        .select_related("composer", "arranger", "publisher")
+        .order_by("title")
+    )
 
     # Get filter values from URL (GET request)
-    f_search = request.GET.get('search')
-    f_genre = request.GET.get('genre')
-    f_diff = request.GET.get('difficulty')
-    f_comp = request.GET.get('composer')
-    f_arr = request.GET.get('arranger')
-    f_pub = request.GET.get('publisher')
-    f_con = request.GET.get('concert')
+    f_search = request.GET.get("search")
+    f_genre = request.GET.get("genre")
+    f_diff = request.GET.get("difficulty")
+    f_comp = request.GET.get("composer")
+    f_arr = request.GET.get("arranger")
+    f_pub = request.GET.get("publisher")
+    f_con = request.GET.get("concert")
 
     # Filter anwenden
     if f_search:
-        pieces = pieces.filter(Q(title__icontains=f_search) | Q(archive_label__icontains=f_search))
+        pieces = pieces.filter(
+            Q(title__icontains=f_search) | Q(archive_label__icontains=f_search)
+        )
     if f_genre:
         pieces = pieces.filter(genres__id=f_genre)
     if f_diff:
@@ -502,82 +592,95 @@ def index(request):
 
     # Data for dropdown menus in the template
     context = {
-        'pieces': pieces,
-        'genres': Genre.objects.all().order_by('name'),
-        'composers': Composer.objects.all().order_by('name'),
-        'arrangers': Arranger.objects.all().order_by('name'),
-        'publishers': Publisher.objects.all().order_by('name'),
-        'concerts': Concert.objects.all().order_by('-date'),
+        "pieces": pieces,
+        "genres": Genre.objects.all().order_by("name"),
+        "composers": Composer.objects.all().order_by("name"),
+        "arrangers": Arranger.objects.all().order_by("name"),
+        "publishers": Publisher.objects.all().order_by("name"),
+        "concerts": Concert.objects.all().order_by("-date"),
         # Return active filters to set "selected" in template
-        'active_filters': request.GET
+        "active_filters": request.GET,
     }
-    return render(request, 'scorelib/index.html', context)
+    return render(request, "scorelib/index.html", context)
 
 
 from django.shortcuts import render, get_object_or_404
 from .models import Piece
 
+
+@login_required
 def piece_detail(request, pk):
     piece = get_object_or_404(Piece, pk=pk)
-    user_profile = getattr(request.user, 'profile', None)
-    
+    user_profile = getattr(request.user, "profile", None)
+
     # Get all parts and sort alphabetically by name
     all_parts = list(piece.parts.all())
     all_parts.sort(key=lambda x: x.part_name.lower())
-    
+
     user_parts = []
 
     if request.user.is_staff or (user_profile and user_profile.has_full_archive_access):
         user_parts = all_parts
-    elif user_profile and user_profile.instrument_groups.exists() and piece.is_active_for_download():
+    elif (
+        user_profile
+        and user_profile.instrument_groups.exists()
+        and piece.is_active_for_download()
+    ):
         for part in all_parts:
             if user_profile.can_view_part(part.part_name):
                 user_parts.append(part)
-        
+
         # Sort the filtered list as well for safety
         user_parts.sort(key=lambda x: x.part_name.lower())
 
-    return render(request, 'scorelib/piece_detail.html', {
-        'piece': piece,
-        'user_parts': user_parts,
-        'all_parts': all_parts,
-        'recordings': piece.audiorecording_set.all(),
-        'program_items': piece.programitem_set.select_related('concert').order_by('-concert__date'),
-    })
-    
+    return render(
+        request,
+        "scorelib/piece_detail.html",
+        {
+            "piece": piece,
+            "user_parts": user_parts,
+            "all_parts": all_parts,
+            "recordings": piece.audiorecording_set.all(),
+            "program_items": piece.programitem_set.select_related("concert").order_by(
+                "-concert__date"
+            ),
+        },
+    )
+
+
 def legal_view(request):
-    return render(request, 'scorelib/legal.html')
-    
+    return render(request, "scorelib/legal.html")
+
 
 @login_required
 @transaction.atomic
 def import_musicians(request):
     if not request.user.is_staff:
-        return redirect('scorelib_index')
+        return redirect("scorelib_index")
 
-    available_groups = InstrumentGroup.objects.all().order_by('name')
+    available_groups = InstrumentGroup.objects.all().order_by("name")
     # Create a set for quick group name matching
     group_names_set = {g.name.lower(): g for g in available_groups}
-        
+
     if request.method == "POST":
         form = CSVUserImportForm(request.POST, request.FILES)
         if form.is_valid():
-            csv_file = request.FILES['csv_file']
-            is_dry_run = form.cleaned_data.get('dry_run')
-            
+            csv_file = request.FILES["csv_file"]
+            is_dry_run = form.cleaned_data.get("dry_run")
+
             try:
-                data_set = csv_file.read().decode('utf-8-sig')
+                data_set = csv_file.read().decode("utf-8-sig")
                 io_string = io.StringIO(data_set)
-                reader = csv.DictReader(io_string, delimiter=';')
+                reader = csv.DictReader(io_string, delimiter=";")
             except Exception as e:
                 messages.error(request, f"Datei konnte nicht gelesen werden: {e}")
-                return redirect('import_musicians')
+                return redirect("import_musicians")
 
             import_results = []
-            
+
             # Start einer globalen Transaktion
             sid = transaction.savepoint()
-            
+
             try:
                 for line_num, row in enumerate(reader, start=2):
                     try:
@@ -585,53 +688,59 @@ def import_musicians(request):
                         last_name = row.get("LastName").strip()
                         groups_raw = row.get("Instruments").strip()
                     except:
-                        import_results.append({
-                            'line': line_num, 'name': "Unvollständig", 
-                            'status': "Fehler: Mind. 'FirstName', 'LastName', 'Instruments' nötig", 'type': 'danger'
-                        })
+                        import_results.append(
+                            {
+                                "line": line_num,
+                                "name": "Unvollständig",
+                                "status": "Fehler: Mind. 'FirstName', 'LastName', 'Instruments' nötig",
+                                "type": "danger",
+                            }
+                        )
                         continue
-                        
+
                     groups_final = ""
                     email_raw = row.get("Email")
                     email = email_raw.strip() if email_raw else ""
-                    
+
                     # Generate user data
                     username = slugify(f"{first_name} {last_name}")
                     # Password: remove spaces in last name
                     raw_password = f"SKG-{last_name.replace(' ', '')}"
-                    
+
                     # Process groups
-                    target_groups = [g.strip() for g in groups_raw.split(',') if g.strip()]
+                    target_groups = [
+                        g.strip() for g in groups_raw.split(",") if g.strip()
+                    ]
                     valid_groups = []
                     unknown_groups = []
-                    
+
                     for g_name in target_groups:
                         if g_name.lower() in group_names_set:
-                            valid_groups.append(group_names_set[g_name.lower()])                                
+                            valid_groups.append(group_names_set[g_name.lower()])
                         else:
                             found = False
                             for group_obj in available_groups:
                                 if group_obj.matches_part(g_name):
                                     valid_groups.append(group_obj)
                                     found = True
-                                    break # Ersten Treffer nehmen
-                            
+                                    break  # Ersten Treffer nehmen
+
                             if not found:
                                 unknown_groups.append(g_name)
-                    
+
                     # Inner savepoint for this row
                     row_sid = transaction.savepoint()
-                    
+
                     try:
                         user, created = User.objects.get_or_create(
                             username=username,
                             defaults={
-                                'first_name': first_name,
-                                'last_name': last_name,
-                                'email': email
-                            }
+                                "first_name": first_name,
+                                "last_name": last_name,
+                                "email": email,
+                            },
                         )
-                        
+
                         if created:
                             user.set_password(raw_password)
                             user.save()
@@ -644,35 +753,37 @@ def import_musicians(request):
 
                         # Profil & Instrumentengruppen
                         profile, _ = MusicianProfile.objects.get_or_create(user=user)
-                        
-                        
+
                         if valid_groups:
                             profile.instrument_groups.set(valid_groups)
                             groups_final = ", ".join(g.name for g in valid_groups)
-                        
+
                         if unknown_groups:
-                            status_text += f" | Unbekannte Gruppen: {', '.join(unknown_groups)}"
+                            status_text += (
+                                f" | Unbekannte Gruppen: {', '.join(unknown_groups)}"
+                            )
                             row_type = "warning"
 
                         transaction.savepoint_commit(row_sid)
-                        
-                        
+
                     except Exception as e:
                         transaction.savepoint_rollback(row_sid)
                         status_text = f"Kritischer Fehler: {str(e)}"
                         row_type = "danger"
                         raw_password = "-"
 
-                    import_results.append({
-                        'line': line_num,
-                        'name': f"{first_name} {last_name}",
-                        'email': email,
-                        'username': username,
-                        'password': raw_password,
-                        'instrument_groups': groups_final,
-                        'status': status_text,
-                        'type': row_type
-                    })
+                    import_results.append(
+                        {
+                            "line": line_num,
+                            "name": f"{first_name} {last_name}",
+                            "email": email,
+                            "username": username,
+                            "password": raw_password,
+                            "instrument_groups": groups_final,
+                            "status": status_text,
+                            "type": row_type,
+                        }
+                    )
 
                 # Abschluss der Transaktion
                 if is_dry_run:
@@ -680,51 +791,59 @@ def import_musicians(request):
                 else:
                     transaction.savepoint_commit(sid)
 
-                return render(request, "admin/csv_user_import_results.html", {
-                    "results": import_results,
-                    "is_dry_run": is_dry_run,
-                    "title": "Import Ergebnis"
-                })
+                return render(
+                    request,
+                    "admin/csv_user_import_results.html",
+                    {
+                        "results": import_results,
+                        "is_dry_run": is_dry_run,
+                        "title": "Import Ergebnis",
+                    },
+                )
 
             except Exception as e:
                 transaction.savepoint_rollback(sid)
                 messages.error(request, f"Allgemeiner Fehler beim Import: {e}")
-                return redirect('import_musicians')
+                return redirect("import_musicians")
     else:
         form = CSVUserImportForm()
-    
-    return render(request, "admin/csv_user_import.html", {
-        "form": form, 
-        "title": "Musiker-Import",
-        "available_groups": available_groups
-    })
+
+    return render(
+        request,
+        "admin/csv_user_import.html",
+        {"form": form, "title": "Musiker-Import", "available_groups": available_groups},
+    )
 
 
 @login_required
 def export_import_results_csv(request):
     if not request.user.is_staff:
-        return redirect('scorelib_index')
+        return redirect("scorelib_index")
 
     # Get data from POST request (hidden fields in form)
     # or alternatively: generate from just-processed data.
     # Since we need them right after import, a download button
     # on the results page makes the most sense.
-    
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="musiker_zugangsdaten.csv"'
-    
-    writer = csv.writer(response, delimiter=';')
-    writer.writerow(['Name', 'Email', 'Username', 'InitialPassword', 'InstrumentGroups', 'Status'])
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="musiker_zugangsdaten.csv"'
+
+    writer = csv.writer(response, delimiter=";")
+    writer.writerow(
+        ["Name", "Email", "Username", "InitialPassword", "InstrumentGroups", "Status"]
+    )
 
     # Die Daten werden per POST vom Ergebnis-Template gesendet
-    names = request.POST.getlist('name[]')
-    emails = request.POST.getlist('email[]')
-    usernames = request.POST.getlist('username[]')
-    passwords = request.POST.getlist('password[]')
-    instrument_groups = request.POST.getlist('instrument_groups[]')
-    statuses = request.POST.getlist('status[]')
+    names = request.POST.getlist("name[]")
+    emails = request.POST.getlist("email[]")
+    usernames = request.POST.getlist("username[]")
+    passwords = request.POST.getlist("password[]")
+    instrument_groups = request.POST.getlist("instrument_groups[]")
+    statuses = request.POST.getlist("status[]")
 
-    for n, e, u, p, i, s in zip(names, emails, usernames, passwords, instrument_groups, statuses):
+    for n, e, u, p, i, s in zip(
+        names, emails, usernames, passwords, instrument_groups, statuses
+    ):
         writer.writerow([n, e, u, p, i, s])
 
     return response
@@ -752,19 +871,19 @@ def export_concert_setlist_gema(request, concert_id):
 
     # Header rows with concert info
     ws.append(["Auftritt:", f"{concert.title}"])
-    date_text = concert.date.strftime('%d.%m.%Y %H:%M') if concert.date else ''
+    date_text = concert.date.strftime("%d.%m.%Y %H:%M") if concert.date else ""
     ws.append(["Datum:", f"{date_text}"])
     ws.append([])
 
     # Column headers
-    headers = ['Index', 'Titel', 'Komponist', 'Arrangeur', 'Verlag', 'Potpourri']
+    headers = ["Index", "Titel", "Komponist", "Arrangeur", "Verlag", "Potpourri"]
     ws.append(headers)
 
     # Bold the label cells and the header row
     bold_font = Font(bold=True)
     try:
-        ws['A1'].font = bold_font
-        ws['A2'].font = bold_font
+        ws["A1"].font = bold_font
+        ws["A2"].font = bold_font
     except Exception:
         pass
 
@@ -776,13 +895,15 @@ def export_concert_setlist_gema(request, concert_id):
             pass
 
     # Fill rows
-    for idx, item in enumerate(concert.programitem_set.all().select_related('piece').order_by('order'), start=1):
+    for idx, item in enumerate(
+        concert.programitem_set.all().select_related("piece").order_by("order"), start=1
+    ):
         piece = item.piece
-        title = piece.title or ''
-        composer = piece.composer.name if piece.composer else ''
-        arranger = piece.arranger.name if piece.arranger else ''
-        publisher = piece.publisher.name if piece.publisher else ''
-        medley = 'ja' if getattr(piece, 'is_medley', False) else 'nein'
+        title = piece.title or ""
+        composer = piece.composer.name if piece.composer else ""
+        arranger = piece.arranger.name if piece.arranger else ""
+        publisher = piece.publisher.name if piece.publisher else ""
+        medley = "ja" if getattr(piece, "is_medley", False) else "nein"
 
         ws.append([idx, title, composer, arranger, publisher, medley])
 
@@ -796,7 +917,7 @@ def export_concert_setlist_gema(request, concert_id):
                     max_length = len(str(cell.value))
             except Exception:
                 pass
-        adjusted_width = (max_length + 2)
+        adjusted_width = max_length + 2
         ws.column_dimensions[col_letter].width = adjusted_width
 
     # Write workbook to in-memory bytes
@@ -805,28 +926,32 @@ def export_concert_setlist_gema(request, concert_id):
     output.seek(0)
 
     filename = f"setlist_{slugify(concert.title)}-{concert.id}.xlsx"
-    response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
 
 @login_required
 def profile_view(request):
-    user_profile = getattr(request.user, 'profile', None)
-    
-    if request.method == 'POST':
+    user_profile = getattr(request.user, "profile", None)
+
+    if request.method == "POST":
         form = UserProfileUpdateForm(request.POST, instance=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, "Profil erfolgreich aktualisiert!")
-            return redirect('profile_view')
+            return redirect("profile_view")
     else:
         form = UserProfileUpdateForm(instance=request.user)
-    
+
     context = {
-        'form': form,
-        'user_profile': user_profile,
+        "form": form,
+        "user_profile": user_profile,
     }
-    return render(request, 'registration/profile.html', context)
+    return render(request, "registration/profile.html", context)
 
 
 @login_required
@@ -834,160 +959,178 @@ def suggest_merges_page(request, model_name):
     """Display suggestions for merging similar entries."""
     from .admin import find_similar_names
     from django.urls import reverse
-    
+
     # Determine model class based on model_name
     model_map = {
-        'composer': Composer,
-        'arranger': Arranger,
-        'publisher': Publisher,
+        "composer": Composer,
+        "arranger": Arranger,
+        "publisher": Publisher,
     }
-    
+
     if model_name not in model_map:
         raise Http404("Model not found")
-    
+
     Model = model_map[model_name]
-    
+
     # Generate clusters from all items
     all_items = Model.objects.all()
     clusters = find_similar_names(all_items, threshold=0.80)
-    
+
     # Store clusters in session for merge confirmation page
-    request.session['duplicate_clusters'] = clusters
+    request.session["duplicate_clusters"] = clusters
     request.session.modified = True
-    
+
     model_display = {
-        'composer': 'Composer',
-        'arranger': 'Arranger',
-        'publisher': 'Publisher',
+        "composer": "Composer",
+        "arranger": "Arranger",
+        "publisher": "Publisher",
     }
-    
+
     context = {
-        'title': f'{model_display.get(model_name, model_name)}-Vorschläge zusammenführen',
-        'clusters': clusters,
-        'model_name': model_name,
+        "title": f"{model_display.get(model_name, model_name)}-Vorschläge zusammenführen",
+        "clusters": clusters,
+        "model_name": model_name,
     }
-    
-    return render(request, 'admin/suggest_merges.html', context)
+
+    return render(request, "admin/suggest_merges.html", context)
 
 
 @login_required
 def merge_cluster_confirm(request, model_name):
     """Show merge confirmation for a cluster of similar entries."""
     from django.urls import reverse
-    
+
     # Determine model class based on model_name
     model_map = {
-        'composer': Composer,
-        'arranger': Arranger,
-        'publisher': Publisher,
+        "composer": Composer,
+        "arranger": Arranger,
+        "publisher": Publisher,
     }
-    
+
     if model_name not in model_map:
         raise Http404("Model not found")
-    
+
     Model = model_map[model_name]
-    
+
     # Get cluster from session
-    clusters = request.session.get('duplicate_clusters')
-    cluster_index = request.POST.get('cluster_index')
-    
+    clusters = request.session.get("duplicate_clusters")
+    cluster_index = request.POST.get("cluster_index")
+
     if not clusters:
         messages.error(request, "Ungültige Anfrage - Keine Cluster in Session.")
-        return redirect(f'admin:scorelib_{model_name}_changelist')
-    
+        return redirect(f"admin:scorelib_{model_name}_changelist")
+
     if cluster_index is None:
         messages.error(request, "Ungültige Anfrage - Keine cluster_index.")
-        return redirect(f'admin:scorelib_{model_name}_changelist')
-    
+        return redirect(f"admin:scorelib_{model_name}_changelist")
+
     try:
         cluster_index = int(cluster_index)
         cluster = clusters[cluster_index]
     except (ValueError, IndexError) as e:
         messages.error(request, f"Ungültige Cluster-Daten: {e}")
-        return redirect(f'admin:scorelib_{model_name}_changelist')
-    
+        return redirect(f"admin:scorelib_{model_name}_changelist")
+
     # Get all cluster entry objects
-    entry_ids = [entry['id'] for entry in cluster['entries']]
+    entry_ids = [entry["id"] for entry in cluster["entries"]]
     entries_dict = {obj.id: obj for obj in Model.objects.filter(id__in=entry_ids)}
-    
+
     # Verify all entries exist
     if len(entries_dict) != len(entry_ids):
         messages.error(request, "Einige Einträge wurden nicht gefunden.")
-        return redirect(f'admin:scorelib_{model_name}_changelist')
-    
+        return redirect(f"admin:scorelib_{model_name}_changelist")
+
     # Check if this is a merge submission (has master_id field)
-    if 'master_id' in request.POST:
-        master_id = int(request.POST.get('master_id'))
-        
+    if "master_id" in request.POST:
+        master_id = int(request.POST.get("master_id"))
+
         if master_id not in entries_dict:
             messages.error(request, "Ungültige Master-Auswahl.")
-            return redirect('merge_cluster_confirm', model_name=model_name, cluster_index=cluster_index)
-        
+            return redirect(
+                "merge_cluster_confirm",
+                model_name=model_name,
+                cluster_index=cluster_index,
+            )
+
         master = entries_dict[master_id]
-        
+
         # Get IDs to merge (those that were checked)
-        merge_ids = [int(id) for id in request.POST.getlist('merge_ids')]
-        
+        merge_ids = [int(id) for id in request.POST.getlist("merge_ids")]
+
         # Remove master from merge list
         merge_ids = [id for id in merge_ids if id != master_id]
-        
+
         if not merge_ids:
             messages.warning(request, "Keine Einträge zum Zusammenführen ausgewählt.")
-            return redirect(f'admin:scorelib_{model_name}_changelist')
-        
+            return redirect(f"admin:scorelib_{model_name}_changelist")
+
         # Update related pieces
-        if model_name == 'composer':
+        if model_name == "composer":
             Piece.objects.filter(composer_id__in=merge_ids).update(composer=master)
-        elif model_name == 'arranger':
+        elif model_name == "arranger":
             Piece.objects.filter(arranger_id__in=merge_ids).update(arranger=master)
-        elif model_name == 'publisher':
+        elif model_name == "publisher":
             Piece.objects.filter(publisher_id__in=merge_ids).update(publisher=master)
-        
+
         # Delete the other objects
         Model.objects.filter(id__in=merge_ids).delete()
-        
+
         count = len(merge_ids)
-        messages.success(request, f"Erfolgreich {count} Eintrag(e) in '{master.name}' zusammengeführt")
-        
+        messages.success(
+            request,
+            f"Erfolgreich {count} Eintrag(e) in '{master.name}' zusammengeführt",
+        )
+
         # Redirect back to suggestions page to see remaining clusters
-        return redirect(reverse('suggest_merges_page', args=[model_name]))
-    
+        return redirect(reverse("suggest_merges_page", args=[model_name]))
+
     # Build list of entries for display
-    cluster_entries = [entries_dict[entry['id']] for entry in cluster['entries']]
-    
+    cluster_entries = [entries_dict[entry["id"]] for entry in cluster["entries"]]
+
     # Build back URL - redirect to suggestions page
-    back_url = reverse('suggest_merges_page', args=[model_name])
-    
+    back_url = reverse("suggest_merges_page", args=[model_name])
+
     context = {
-        'title': f'{model_name.capitalize()} zusammenführen - Cluster',
-        'entries': cluster_entries,
-        'cluster': cluster,
-        'cluster_index': cluster_index,
-        'model_name': model_name,
-        'back_url': back_url,
+        "title": f"{model_name.capitalize()} zusammenführen - Cluster",
+        "entries": cluster_entries,
+        "cluster": cluster,
+        "cluster_index": cluster_index,
+        "model_name": model_name,
+        "back_url": back_url,
     }
-    return render(request, 'admin/merge_cluster_confirm.html', context)
+    return render(request, "admin/merge_cluster_confirm.html", context)
 
 
 @require_POST
 @login_required
 def process_single_audio(request):
+    if not request.user.is_staff:
+        return JsonResponse(
+            {"status": "error", "message": "Zugriff verweigert."}, status=403
+        )
+
     try:
-        piece_id = request.POST.get('piece_id')
-        concert_id = request.POST.get('concert_id')
-        description = request.POST.get('description', '')
-        audio_file = request.FILES.get('audio_file')
- 
+        piece_id = request.POST.get("piece_id")
+        concert_id = request.POST.get("concert_id")
+        description = request.POST.get("description", "")
+        audio_file = request.FILES.get("audio_file")
+
+        if not audio_file:
+            return JsonResponse(
+                {"status": "error", "message": "Keine Audio-Datei hochgeladen."},
+                status=400,
+            )
+
         piece = get_object_or_404(Piece, pk=piece_id)
         concert = get_object_or_404(Concert, pk=concert_id)
 
         # step 1: store uploaded file temporarily
         temp_filename = f"rip_T{piece_id}_{audio_file.name}"
-        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
+        temp_dir = os.path.join(settings.MEDIA_ROOT, "temp")
         os.makedirs(temp_dir, exist_ok=True)
         temp_path = os.path.join(temp_dir, temp_filename)
 
-        with open(temp_path, 'wb+') as f:
+        with open(temp_path, "wb+") as f:
             for chunk in audio_file.chunks():
                 f.write(chunk)
 
@@ -996,52 +1139,63 @@ def process_single_audio(request):
             piece=piece,
             concert=concert,
             description=description,
-            audio_file=os.path.join('temp', temp_filename)
+            audio_file=os.path.join("temp", temp_filename),
         )
 
-        # step 3: process the file (e.g. convert to mp3, add metadata) 
-        # and move to final location. This will be done by the signaling mechanism 
+        # step 3: process the file (e.g. convert to mp3, add metadata)
+        # and move to final location. This will be done by the signaling mechanism
         # so we only need to report success.
 
-        return JsonResponse({'status': 'success', 'piece': piece.title})
+        return JsonResponse({"status": "success", "piece": piece.title})
 
     except Exception as e:
         import traceback
+
         print(traceback.format_exc())
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
 
 @login_required
 def audio_ripping_page(request, concert_id):
     """Display the audio ripping interface for a specific concert, showing all pieces in the program."""
+    if not request.user.is_staff:
+        return redirect("scorelib_index")
+
     concert = get_object_or_404(Concert, pk=concert_id)
-    program_items = ProgramItem.objects.filter(concert=concert).order_by('order')
-    
+    program_items = ProgramItem.objects.filter(concert=concert).order_by("order")
+
     # load all existing recordings for this concert in one query and map them by piece ID for easy access
     for item in program_items:
         item.existing_recordings = AudioRecording.objects.filter(
             concert=concert, piece=item.piece
         )
-    
+
     context = {
-        'concert': concert,
-        'program_items': program_items,
-        'title': f'CD-Tracks zuordnen: {concert.title}'
+        "concert": concert,
+        "program_items": program_items,
+        "title": f"CD-Tracks zuordnen: {concert.title}",
     }
-    return render(request, 'admin/audio_ripping.html', context)
+    return render(request, "admin/audio_ripping.html", context)
+
 
 @require_POST
 @login_required
 def delete_audio_recording(request):
-    recording_id = request.POST.get('recording_id')
+    if not request.user.is_staff:
+        return JsonResponse(
+            {"status": "error", "message": "Zugriff verweigert."}, status=403
+        )
+
+    recording_id = request.POST.get("recording_id")
     recording = get_object_or_404(AudioRecording, pk=recording_id)
-    
+
     try:
         # Datei vom Dateisystem löschen
         if recording.audio_file and os.path.exists(recording.audio_file.path):
             os.remove(recording.audio_file.path)
-        
+
         # Datenbankeintrag löschen
         recording.delete()
-        return JsonResponse({'status': 'success'})
+        return JsonResponse({"status": "success"})
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
