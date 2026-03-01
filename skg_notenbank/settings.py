@@ -31,8 +31,13 @@ SECRET_KEY = os.environ.get(
 )
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# for debugging behind a reverse proxy, we need to trust the X-Forwarded headers
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     "uni-brachbach.de",
