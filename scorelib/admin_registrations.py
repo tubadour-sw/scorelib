@@ -16,7 +16,10 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from .admin_modules import concerts_audio  # noqa: F401
+# register the library module early so that the Piece model has an admin
+# before anything tries to refer to it with autocomplete_fields.
 from .admin_modules import library  # noqa: F401
+
+from .admin_modules import concerts_audio  # noqa: F401
 from .admin_modules import site  # noqa: F401
 from .admin_modules import users_loans  # noqa: F401
