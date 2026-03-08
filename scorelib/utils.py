@@ -28,6 +28,45 @@ from django.conf import settings
 from django.utils.text import slugify
 
 
+def add_pdf_metadata(writer, piece, part_name):
+    """
+    Adds useful metadata to a PDF writer object for sheet music apps.
+    
+    Metadata fields added:
+    - Title: Piece title
+    - Author: Composer name
+    - Subject: Part name/instrument
+    - Keywords: Composer, arranger, part name for searchability
+    - Creator: SKG Notenbank (identifies origin)
+    
+    These fields are recognized by tablet sheet music apps like:
+    - MobileSheets
+    - forScore
+    - Symphony Pro
+    - And other standard PDF readers
+    """
+    composer_name = piece.composer.name if piece.composer else ""
+    arranger_name = f"Arr. {piece.arranger.name}" if piece.arranger else ""
+    author_name = piece.composer.name if piece.composer else arranger_name
+    
+    # Build keywords string: composer, arranger, part name
+    keywords_parts = [composer_name]
+    if arranger_name:
+        keywords_parts.append(arranger_name)
+    keywords_parts.append(part_name)
+    
+    keywords = ", ".join(keywords_parts)
+    
+    # Set standard PDF metadata
+    writer.add_metadata({
+        "/Title": f"{piece.title} ({part_name})",  # Piece title
+        "/Author": author_name,                    # Author - recognized by most apps
+        "/Subject": part_name,                     # Part/instrument information
+        "/Keywords": keywords,                     # Searchable metadata
+        "/Creator": "SKG Notenbank",               # Origin application
+    })
+
+
 def parse_page_ranges(range_string):
     """
     Converts strings like '1, 3-5, 8' into a list of 0-based page indices: [0, 2, 3, 4, 7]
@@ -55,6 +94,9 @@ def process_pdf_split(piece, source_file, valid_data_list):
     """
     Takes the master PDF and creates Part objects based on the
     filtered list of dictionaries (valid_data_list).
+    
+    Each output PDF includes metadata (title, composer, arranger, part name)
+    for compatibility with tablet sheet music apps like MobileSheets and forScore.
     """
     reader = PdfReader(source_file)
 
@@ -75,6 +117,9 @@ def process_pdf_split(piece, source_file, valid_data_list):
 
             # Only save if pages were added to the PDF
             if len(writer.pages) > 0:
+                # Add metadata to the PDF for sheet music apps
+                add_pdf_metadata(writer, piece, part_name)
+                
                 # Write to memory
                 buffer = io.BytesIO()
                 writer.write(buffer)
@@ -96,32 +141,6 @@ def process_pdf_split(piece, source_file, valid_data_list):
                     filename, ContentFile(buffer.getvalue()), save=False
                 )
                 new_part.save()
-
-
-def split_pdf_into_parts(piece, source_pdf_file, split_data):
-    """
-    split_data is a list of dictionaries:
-    [{'name': 'Trumpet 1', 'pages': [0, 1]}, {'name': 'Tuba', 'pages': [2]}]
-    Page numbers are 0-based.
-    """
-    reader = PdfReader(source_pdf_file)
-
-    for item in split_data:
-        writer = PdfWriter()
-        for page_num in item["pages"]:
-            writer.add_page(reader.pages[page_num])
-
-        # Write to memory instead of disk
-        buffer = io.BytesIO()
-        writer.write(buffer)
-
-        # Create new 'Part' object
-        new_part = Part(piece=piece, part_name=item["name"])
-
-        # Attach file to the model
-        filename = f"{piece.title}_{item['name']}.pdf".replace(" ", "_")
-        new_part.pdf_file.save(filename, ContentFile(buffer.getvalue()), save=False)
-        new_part.save()
 
 
 def process_audio_file_logic(recording_obj):
