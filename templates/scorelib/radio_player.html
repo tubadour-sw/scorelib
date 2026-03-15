@@ -31,7 +31,7 @@
                 onclick="playTrack({{ forloop.index0 }})"
                 style="cursor: pointer;">
                 {% if track.concert.poster %}
-                    <img src="{{ track.concert.poster.url }}" alt="Poster" class="me-3 rounded" style="width: 50px; height: 50px; object-fit: cover;">
+                    <img src="{{ track.concert.poster.url }}" alt="Poster" class="me-3 rounded" style="width: 50px; height: 50px; object-fit: contain;">
                 {% else %}
                     <div class="me-3 rounded d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: #f8f9fa; color: #6c757d; font-size: 1.5rem;">🎵</div>
                 {% endif %}
