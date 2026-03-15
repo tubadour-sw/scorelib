@@ -105,6 +105,7 @@ def concert_detail_view(request, concert_id=None):
 
     context["program_data"] = program_data
     context["user_profile"] = profile
+    context["has_recordings"] = any(item["recordings"] for item in program_data)
 
     return render(request, "scorelib/concert_detail.html", context)
 

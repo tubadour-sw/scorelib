@@ -34,6 +34,7 @@ from .concerts import (
     export_concert_setlist_gema,
 )
 from .downloads import protected_audio_download, protected_part_download
+from .radio_player import radio_player_view
 
 __all__ = [
     "audio_ripping_page",
@@ -52,6 +53,7 @@ __all__ = [
     "profile_view",
     "protected_audio_download",
     "protected_part_download",
+    "radio_player_view",
     "scorelib_index",
     "scorelib_search",
     "suggest_merges_page",

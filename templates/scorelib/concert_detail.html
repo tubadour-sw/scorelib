@@ -20,7 +20,19 @@
                     </a>
                 </p>
                 {% endif %}
-                
+                {% if has_recordings %}
+                <form action="{% url 'radio_player' %}" method="get">
+                    {% for item in program_data %}
+                        {% for rec in item.recordings %}
+                            <input type="hidden" name="tracks" value="{{ rec.id }}">
+                        {% endfor %}
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary">
+                        🎵 Konzert im Radio-Modus hören
+                    </button>
+                </form>
+                {% endif %}
+
                 <h3 class="mt-5 mb-3">Konzertprogramm</h3>
                 <div class="list-group shadow-sm">
                     {% for item in program_data %}

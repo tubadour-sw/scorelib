@@ -35,6 +35,7 @@ urlpatterns = [
         name="export_concert_gema",
     ),
     path("archive/", views.scorelib_index, name="scorelib_index"),
+    path("radio/", views.radio_player_view, name="radio_player"),
     # abgesicherter Download
     path(
         "download/part/<int:part_id>/",

@@ -209,21 +209,15 @@
                     {% endfor %}
                 </td>
                 <td>
-                    {% for rec in piece.audiorecording_set.all %}
-                        <div class="d-flex align-items-center mb-1">
-                            <a href="{% url 'protected_audio_download' rec.id %}" 
-                               class="btn btn-sm btn-outline-success me-2" 
-                               title="{{ rec.description|default:'Abspielen' }}"
-                               target="_blank">
-                                ▶️ Hören
-                            </a>
-                            {% if rec.description %}
-                                <small class="text-muted d-none d-md-inline">{{ rec.description }}</small>
-                            {% endif %}
-                        </div>
-                    {% empty %}
+                    {% if piece.audiorecording_set.all %}
+                        <a href="{% url 'radio_player' %}?{% for r in piece.audiorecording_set.all %}tracks={{ r.id }}&{% endfor %}" 
+                           class="btn btn-sm btn-outline-primary" 
+                           title="Zum Radio hinzufügen">
+                            📻 Radio
+                        </a>
+                    {% else %}
                         <small class="text-muted">-</small>
-                    {% endfor %}
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
