@@ -126,11 +126,12 @@
     // 3. Media Session API (Für Sperrbildschirm & Hintergrund)
     function setupMediaSession(track) {
         if ('mediaSession' in navigator) {
+            const artwork = track.poster ? [{ src: track.poster, sizes: '200x200', type: 'image/jpeg' }] : [{ src: '/static/img/radio-logo.png', sizes: '512x512', type: 'image/png' }];
             navigator.mediaSession.metadata = new MediaMetadata({
-                title: track.title,
-                artist: track.artist,
+                title: track.pieceTitle || track.title,
+                artist: (track.composer || '') + (track.arranger ? ' (Arr. ' + track.arranger + ')' : ''),
                 album: track.album,
-                artwork: [{ src: '/static/img/radio-logo.png', sizes: '512x512', type: 'image/png' }]
+                artwork: artwork
             });
 
             navigator.mediaSession.setActionHandler('play', () => togglePlay());
@@ -148,7 +149,7 @@
         
         const artContainer = document.getElementById('album-art-container');
         if (track.poster) {
-            artContainer.innerHTML = `<img src="${track.poster}" alt="Album Art" style="width: 100%; height: 100%; object-fit: cover;">`;
+            artContainer.innerHTML = `<img src="${track.poster}" alt="Album Art" style="width: 100%; height: 100%; object-fit: contain;">`;
         } else {
             artContainer.innerHTML = '<span style="font-size: 5rem;">🎵</span>';
         }
