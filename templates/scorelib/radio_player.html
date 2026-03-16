@@ -46,6 +46,7 @@
                         <br><small class="text-muted">{{ track.description }}</small>
                     {% endif %}
                 </div>
+                <span class="badge text-bg-primary me-2 now-playing-badge d-none">Läuft</span>
                 <button class="btn btn-sm btn-outline-danger ms-2" onclick="event.stopPropagation(); removeTrack('{{ track.id }}')" title="Aus Playlist entfernen">🗑️</button>
                 <div class="d-flex flex-column ms-1">
                     <button class="btn btn-outline-secondary" onclick="event.stopPropagation(); moveUp('{{ track.id }}')" title="Nach oben" style="min-width: 44px; min-height: 44px; font-size: 1.2rem; padding: 0.25rem;">⬆️</button>
@@ -99,7 +100,7 @@
         
         updateUI(track);
         setupMediaSession(track);
-        highlightPlaylist(index);
+        highlightPlaylist(index, true);
     }
 
     function togglePlay() {
@@ -107,9 +108,11 @@
             if (!audio.src) playTrack(0);
             else audio.play();
             playBtn.innerText = "⏸ Pause";
+            highlightPlaylist(currentIndex, true);
         } else {
             audio.pause();
             playBtn.innerText = "▶ Play";
+            highlightPlaylist(currentIndex, false);
         }
     }
 
@@ -156,10 +159,53 @@
         }
     }
 
-    function highlightPlaylist(index) {
-        document.querySelectorAll('.list-group-item').forEach(el => el.classList.remove('active'));
-        document.getElementById('item-' + index).classList.add('active');
+    function updateNowPlayingBadge(item, isPlaying) {
+        if (!item) return;
+        const badge = item.querySelector('.now-playing-badge');
+        if (!badge) return;
+
+        badge.classList.remove('d-none');
+        if (isPlaying) {
+            badge.classList.remove('text-bg-secondary');
+            badge.classList.add('text-bg-primary');
+            badge.innerText = 'Läuft';
+        } else {
+            badge.classList.remove('text-bg-primary');
+            badge.classList.add('text-bg-secondary');
+            badge.innerText = 'Pausiert';
+        }
     }
+
+    function highlightPlaylist(index, isPlaying = !audio.paused) {
+        document.querySelectorAll('#playlist-container .list-group-item').forEach(el => {
+            el.classList.remove('list-group-item-primary', 'border', 'border-primary');
+            el.removeAttribute('aria-current');
+            const badge = el.querySelector('.now-playing-badge');
+            if (badge) {
+                badge.classList.add('d-none');
+                badge.classList.remove('text-bg-secondary');
+                badge.classList.add('text-bg-primary');
+                badge.innerText = 'Läuft';
+            }
+        });
+
+        const currentItem = document.getElementById('item-' + index);
+        if (!currentItem) return;
+
+        currentItem.classList.add('list-group-item-primary', 'border', 'border-primary');
+        currentItem.setAttribute('aria-current', 'true');
+        updateNowPlayingBadge(currentItem, isPlaying);
+    }
+
+    audio.onplay = () => {
+        playBtn.innerText = "⏸ Pause";
+        highlightPlaylist(currentIndex, true);
+    };
+
+    audio.onpause = () => {
+        playBtn.innerText = "▶ Play";
+        highlightPlaylist(currentIndex, false);
+    };
 
     // Playlist management
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -198,6 +244,9 @@
                         li.id = 'item-' + i;
                         li.onclick = () => playTrack(i);
                     });
+                    if (playlist.length > 0) {
+                        highlightPlaylist(currentIndex);
+                    }
                 }
             }
         });
