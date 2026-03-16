@@ -69,6 +69,7 @@
                         Datum {% if current_sort == 'date' %}{% if current_sort_dir == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
                     </a>
                 </th>
+                <th>Audio</th>
             </tr>
         </thead>
         <tbody>
@@ -89,10 +90,21 @@
                         <small class="text-muted">{{ c.sort_date|date:"Y" }}</small>
                     {% endif %}
                 </td>
+                <td>
+                    {% if c.recordings.all %}
+                        <a href="{% url 'radio_player' %}?{% for r in c.recordings.all %}tracks={{ r.id }}&{% endfor %}"
+                           class="btn btn-sm btn-outline-primary"
+                           title="Zum Radio hinzufügen">
+                            📻 Radio
+                        </a>
+                    {% else %}
+                        <small class="text-muted">-</small>
+                    {% endif %}
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="2" class="text-center text-muted py-4">Keine Konzerte gefunden.</td>
+                <td colspan="3" class="text-center text-muted py-4">Keine Konzerte gefunden.</td>
             </tr>
             {% endfor %}
         </tbody>

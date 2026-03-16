@@ -118,7 +118,7 @@ def concert_list_view(request):
     f_sort = request.GET.get("sort", "date")
     f_sort_dir = request.GET.get("sort_dir", "desc")
 
-    concerts = Concert.objects.all()
+    concerts = Concert.objects.prefetch_related("recordings")
 
     if f_search:
         concerts = concerts.filter(

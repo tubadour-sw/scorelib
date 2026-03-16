@@ -5,7 +5,7 @@
 <div class="container text-center mt-5">
     {% if tracks %}
         <h2 id="track-title">Notenbank Radio</h2>
-        <p id="track-info" class="text-muted">Wähle ein Stück zum Starten</p>
+        <p id="track-info" class="text-muted">Drücke Play, um zu starten</p>
 
         <div class="album-art my-4">
             <div id="album-art-container" style="width: 200px; height: 200px; margin: 0 auto; display: flex; align-items: center; justify-content: center; border-radius: 15px; overflow: hidden;">
@@ -58,8 +58,9 @@
         <div class="empty-radio py-5">
             <span style="font-size: 4rem;">📻</span>
             <h3>Dein Radio ist noch leer.</h3>
-            <p>Gehe zu einem Konzert und klicke auf "Im Radio hören", um die Playlist zu füllen.</p>
+            <p>Füge einzelne Stücke oder komplette Konzerte zur Playlist hinzu, indem Du den "Radio"-Knopf klickst.</p>
             <a href="{% url 'concert_list' %}" class="btn btn-outline-primary">Zu den Konzerten</a>
+            <a href="{% url 'scorelib_index' %}" class="btn btn-outline-primary">Zu den Stücken</a>
         </div>
     {% endif %}
 </div>
